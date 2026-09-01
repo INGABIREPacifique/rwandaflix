@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './responsive.css'
 import App from './App.jsx'
-import { getSession } from './lib/platform'
+import { getCatalog, getSession, catalogToUiMovies } from './lib/platform'
+import { movies } from './data/movies'
 import { isSupabaseConfigured } from './lib/supabase'
 
 function BackendStatus() {
@@ -31,12 +32,27 @@ function BackendStatus() {
   )
 }
 
-function Root() {
-  return <><App /><BackendStatus /></>
+async function hydrateCatalog() {
+  if (!isSupabaseConfigured) return
+  try {
+    const rows = await getCatalog()
+    const remoteMovies = catalogToUiMovies(rows)
+    if (remoteMovies.length) {
+      movies.splice(0, movies.length, ...remoteMovies)
+    }
+  } catch (error) {
+    console.warn('RwandaFlix catalog hydration failed; keeping demo catalog.', error)
+  }
 }
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
-)
+async function bootstrap() {
+  await hydrateCatalog()
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <App />
+      <BackendStatus />
+    </StrictMode>,
+  )
+}
+
+bootstrap()
