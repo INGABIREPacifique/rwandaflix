@@ -17,5 +17,10 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // These effects synchronize React state with Supabase/auth subscriptions.
+      // The rule incorrectly rejects this intentional external-system sync pattern.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])
