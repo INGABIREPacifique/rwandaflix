@@ -27,3 +27,15 @@ export async function getCreatorProfile(userId) { const { data, error } = await 
 export async function getCreatorSubmissions(creatorId) { const { data, error } = await requireClient().from('film_submissions').select('*').eq('creator_id', creatorId).order('created_at', { ascending: false }); if (error) throw error; return data ?? [] }
 export async function getSeriesCatalog() { if (!supabase) return []; const { data, error } = await supabase.from('series').select('id,catalog_key,title,description,poster_url,backdrop_url,trailer_url,release_year,genre,language,is_featured,is_original,is_published').eq('is_published', true).order('is_featured', { ascending: false }).order('release_year', { ascending: false }); if (error) throw error; return data ?? [] }
 export async function getEpisodes(seriesId) { const { data, error } = await requireClient().from('episodes').select('id,series_id,title,description,episode_number,season_number,duration_minutes,video_url,thumbnail_url').eq('series_id', seriesId).order('season_number').order('episode_number'); if (error) throw error; return data ?? [] }
+
+export async function createFilmSubmission(creatorId, submission) {
+  const { data, error } = await requireClient().from('film_submissions').insert({ creator_id: creatorId, ...submission }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateCreatorProfile(userId, updates) {
+  const { data, error } = await requireClient().from('creator_profiles').upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' }).select().single()
+  if (error) throw error
+  return data
+}
