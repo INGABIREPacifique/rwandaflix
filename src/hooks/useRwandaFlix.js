@@ -25,13 +25,9 @@ export function useRwandaFlixData() {
       setMovies(movieData)
       setSeries(seriesData)
       setGenres(genreData)
-
       if (currentUser) {
         const [list, historyData, notificationData, subscriptionData] = await Promise.all([
-          getWatchlist(currentUser.id),
-          getWatchHistory(currentUser.id),
-          getNotifications(),
-          getMySubscription(),
+          getWatchlist(currentUser.id), getWatchHistory(currentUser.id), getNotifications(), getMySubscription(),
         ])
         setWatchlist(list)
         setHistory(historyData)
@@ -51,29 +47,34 @@ export function useRwandaFlixData() {
   }, [user])
 
   useEffect(() => {
+    if (!supabase) return undefined
     let mounted = true
-    if (!supabase) {
-      setLoading(false)
-      return undefined
-    }
     supabase.auth.getUser().then(({ data }) => {
       if (mounted) setUser(data.user ?? null)
+    }).catch(err => {
+      if (mounted) setError(err?.message || 'Unable to read the current session.')
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) setUser(session?.user ?? null)
     })
-    return () => { mounted = false; listener.subscription.unsubscribe() }
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
-  useEffect(() => { refresh(user) }, [user, refresh])
+  useEffect(() => {
+    let mounted = true
+    refresh(user).catch(err => mounted && setError(err?.message || 'Unable to refresh RwandaFlix data.'))
+    return () => { mounted = false }
+  }, [refresh, user])
 
   const toggleMovie = useCallback(async (movieId) => {
     if (!user) throw new Error('Please sign in to use My List.')
     const exists = watchlist.some(item => item.movie_id === movieId)
     if (exists) await removeMovieFromWatchlist(user.id, movieId)
     else await addMovieToWatchlist(user.id, movieId)
-    const next = await getWatchlist(user.id)
-    setWatchlist(next)
+    setWatchlist(await getWatchlist(user.id))
   }, [user, watchlist])
 
   const readNotification = useCallback(async (id) => {
