@@ -21,7 +21,7 @@ export function useRwandaFlix() {
     if (!user) {
       setWatchlist([])
       setHistory([])
-      return
+      return { watchlist: [], history: [] }
     }
 
     const [list, historyRows] = await Promise.all([
@@ -30,6 +30,7 @@ export function useRwandaFlix() {
     ])
     setWatchlist(list)
     setHistory(historyRows)
+    return { watchlist: list, history: historyRows }
   }, [user])
 
   useEffect(() => {
@@ -70,15 +71,12 @@ export function useRwandaFlix() {
     if (!user) {
       setWatchlist([])
       setHistory([])
-      return
+      return undefined
     }
 
     let mounted = true
-    setLoading(true)
-
     refreshAccount()
       .catch(err => mounted && setError(err.message || 'Unable to load your account data.'))
-      .finally(() => mounted && setLoading(false))
 
     return () => { mounted = false }
   }, [user, refreshAccount])
