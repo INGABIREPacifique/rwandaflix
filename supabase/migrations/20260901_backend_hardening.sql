@@ -1,19 +1,17 @@
 -- RwandaFlix backend hardening migration
 -- Run after supabase/schema.sql.
 
--- Prevent duplicate watchlist rows for the same user/content.
+-- Unique composite indexes support Supabase upsert(onConflict: ...).
+-- PostgreSQL UNIQUE indexes allow multiple NULL values, so movie and series
+-- rows do not conflict with each other.
 create unique index if not exists watchlist_user_movie_uidx
-on public.watchlist(user_id, movie_id)
-where movie_id is not null;
+on public.watchlist(user_id, movie_id);
 
 create unique index if not exists watchlist_user_series_uidx
-on public.watchlist(user_id, series_id)
-where series_id is not null;
+on public.watchlist(user_id, series_id);
 
--- Keep one current progress record per user/movie.
 create unique index if not exists watch_history_user_movie_uidx
-on public.watch_history(user_id, movie_id)
-where movie_id is not null;
+on public.watch_history(user_id, movie_id);
 
 -- Automatically create a profile when a new Auth user signs up.
 create or replace function public.handle_new_user()
