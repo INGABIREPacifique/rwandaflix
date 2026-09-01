@@ -8,11 +8,14 @@ import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import RwandaFlixBackendBridge from './components/RwandaFlixBackendBridge.jsx'
 
 function Root() {
-  return <AppErrorBoundary><RwandaFlixBackendBridge /><App /></AppErrorBoundary>
+  return (
+    <AppErrorBoundary>
+      <RwandaFlixBackendBridge />
+      <App />
+    </AppErrorBoundary>
+  )
 }
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    {createElement(Root)}
-  </StrictMode>
+  <StrictMode>{createElement(Root)}</StrictMode>
 )
