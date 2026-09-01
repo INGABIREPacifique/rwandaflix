@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
-import { fetchMovies, fetchSeries } from '../lib/catalog'
+import { getMovies, getSeries } from '../lib/catalog'
 import { movies as demoMovies } from '../data/movies'
 
-function normalizeMovie(item, index) {
+function normalize(item, index) {
   return {
-    id: item.id ?? item.slug ?? index + 1,
-    title: item.title ?? item.name ?? 'Untitled',
-    year: item.release_year ?? item.year ?? new Date().getFullYear(),
-    genre: item.genre ?? item.category ?? 'Drama',
-    duration: item.duration ?? item.runtime ?? '—',
+    id: item.id ?? index + 1,
+    title: item.title ?? 'Untitled',
+    year: item.release_year ?? new Date().getFullYear(),
+    genre: item.genre ?? 'Drama',
+    duration: item.duration ?? (item.duration_minutes ? `${item.duration_minutes}m` : '—'),
     description: item.description ?? '',
-    image: item.poster_url ?? item.poster ?? item.thumbnail_url ?? item.image ?? '',
+    image: item.poster_url ?? item.backdrop_url ?? '',
     ...item,
   }
 }
@@ -26,13 +26,11 @@ export function useCatalog() {
     async function load() {
       try {
         const [movieRows, seriesRows] = await Promise.all([
-          fetchMovies(),
-          fetchSeries(),
+          getMovies(),
+          getSeries(),
         ])
-
         if (!active) return
-
-        const remote = [...movieRows, ...seriesRows].map(normalizeMovie)
+        const remote = [...movieRows, ...seriesRows].map(normalize)
         setCatalog(remote.length ? remote : demoMovies)
         setError(null)
       } catch (err) {
