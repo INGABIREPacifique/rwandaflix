@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-const requireClient=()=>{if(!supabase)throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local.');return supabase}
+const requireClient=()=>{if(!supabase)throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env.local.');return supabase}
 export async function getSession(){if(!supabase)return null;const {data,error}=await supabase.auth.getSession();if(error)throw error;return data.session}
 export function onAuthStateChange(cb){if(!supabase)return {data:{subscription:{unsubscribe(){}}}};return supabase.auth.onAuthStateChange(cb)}
 export async function signInWithPassword(email,password){const {data,error}=await requireClient().auth.signInWithPassword({email,password});if(error)throw error;return data}
