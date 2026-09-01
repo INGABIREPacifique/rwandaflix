@@ -1,0 +1,56 @@
+/* RwandaFlix v2 visual polish layer — intentionally additive */
+:root { color-scheme: dark; }
+html { scroll-behavior: smooth; }
+body { background: #070707; }
+button, input { font: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid #e50914; outline-offset: 3px; }
+::selection { background: #e50914; color: #fff; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: #090909; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
+
+/* Subtle depth and interaction improvements */
+.movie-card, .wide-card, .category, .price-card, .quick-picks button { transform: translateZ(0); }
+.movie-card { transition: transform .25s ease, box-shadow .25s ease; }
+.movie-card:hover { transform: translateY(-5px); box-shadow: 0 18px 45px rgba(0,0,0,.35); }
+.movie-card img { transition: transform .45s ease, filter .35s ease; }
+.movie-card:hover img { transform: scale(1.035); }
+.wide-card { transition: transform .25s ease, border-color .25s ease; }
+.wide-card:hover { transform: translateY(-3px); }
+.category { transition: transform .22s ease, border-color .22s ease; }
+.category:hover { transform: translateY(-4px); }
+.quick-picks button { transition: transform .2s ease, background .2s ease; }
+.quick-picks button:hover { transform: translateY(-2px); }
+.price-card { transition: transform .25s ease, border-color .25s ease; }
+.price-card:hover { transform: translateY(-5px); }
+
+/* Mobile navigation and controls */
+@media (max-width: 760px) {
+  .navbar { position: sticky; top: 0; z-index: 100; }
+  .nav-right .search-box { max-width: 170px; }
+  .nav-links.open { z-index: 110; }
+  .hero-content { padding-top: 110px; }
+  .quick-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-bar { gap: 12px; }
+  .browse-search { width: 100%; }
+}
+
+@media (max-width: 520px) {
+  .logo { font-size: 17px; }
+  .nav-right .search-box { width: 38px; padding: 0 10px; overflow: hidden; }
+  .nav-right .search-box input { width: 0; opacity: 0; padding: 0; }
+  .hero-content h1 { font-size: clamp(40px, 13vw, 62px); }
+  .hero-content p { max-width: 100%; }
+  .quick-picks { grid-template-columns: 1fr 1fr; }
+  .quick-picks button { min-height: 72px; }
+  .movie-row { grid-auto-columns: minmax(145px, 43vw); }
+  .browse-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .genre-pills { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 5px; width: 100%; }
+  .genre-pills button { white-space: nowrap; }
+  .pricing-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
