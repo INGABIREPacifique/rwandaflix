@@ -1,0 +1,15 @@
+{
+  "name": "RwandaFlix",
+  "short_name": "RwandaFlix",
+  "description": "Premium streaming dedicated to Rwandan cinema.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070707",
+  "theme_color": "#070707",
+  "icons": [{
+    "src": "/favicon.svg",
+    "sizes": "any",
+    "type": "image/svg+xml",
+    "purpose": "any maskable"
+  }]
+}
