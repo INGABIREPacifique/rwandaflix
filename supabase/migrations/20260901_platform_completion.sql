@@ -2,20 +2,26 @@
 -- Run after supabase/schema.sql and 20260901_backend_hardening.sql.
 
 -- Ensure each watchlist row points to exactly one content type.
-alter table public.watchlist
-drop constraint if exists watchlist_content_check;
-
-alter table public.watchlist
-add constraint watchlist_content_check
+alter table public.watchlist drop constraint if exists watchlist_content_check;
+alter table public.watchlist add constraint watchlist_content_check
 check (((movie_id is not null)::integer + (series_id is not null)::integer) = 1);
 
--- Ensure each history row points to exactly one content type.
-alter table public.watch_history
-drop constraint if exists watch_history_content_check;
+-- Safe upsert targets for movie watchlists/history.
+create unique index if not exists watchlist_user_movie_uidx
+on public.watchlist(user_id, movie_id) where movie_id is not null;
 
-alter table public.watch_history
-add constraint watch_history_content_check
+create unique index if not exists watchlist_user_series_uidx
+on public.watchlist(user_id, series_id) where series_id is not null;
+
+alter table public.watch_history drop constraint if exists watch_history_content_check;
+alter table public.watch_history add constraint watch_history_content_check
 check (((movie_id is not null)::integer + (episode_id is not null)::integer) = 1);
+
+create unique index if not exists watch_history_user_movie_uidx
+on public.watch_history(user_id, movie_id) where movie_id is not null;
+
+create unique index if not exists watch_history_user_episode_uidx
+on public.watch_history(user_id, episode_id) where episode_id is not null;
 
 -- CREATOR PROFILES
 create table if not exists public.creator_profiles (
@@ -89,7 +95,7 @@ create table if not exists public.notifications (
   created_at timestamptz default now()
 );
 
--- Seed the plans used by the frontend prototype.
+-- Seed plans.
 insert into public.subscription_plans (name, price_monthly, max_profiles, max_devices, video_quality, ads_supported)
 values
   ('Free', 0, 1, 1, 'standard', true),
@@ -110,67 +116,30 @@ alter table public.subscription_plans enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.notifications enable row level security;
 
--- Creator policies
-create policy "Creators can view their profile"
-on public.creator_profiles for select to authenticated
+create policy "Creators can view their profile" on public.creator_profiles for select to authenticated
 using (auth.uid() = user_id);
-
-create policy "Creators can create their profile"
-on public.creator_profiles for insert to authenticated
+create policy "Creators can create their profile" on public.creator_profiles for insert to authenticated
 with check (auth.uid() = user_id);
+create policy "Creators can update their profile" on public.creator_profiles for update to authenticated
+using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Creators can update their profile"
-on public.creator_profiles for update to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+create policy "Creators can view their submissions" on public.film_submissions for select to authenticated
+using (exists (select 1 from public.creator_profiles cp where cp.id = creator_id and cp.user_id = auth.uid()));
+create policy "Creators can create submissions" on public.film_submissions for insert to authenticated
+with check (exists (select 1 from public.creator_profiles cp where cp.id = creator_id and cp.user_id = auth.uid()));
+create policy "Creators can update submissions" on public.film_submissions for update to authenticated
+using (exists (select 1 from public.creator_profiles cp where cp.id = creator_id and cp.user_id = auth.uid()))
+with check (exists (select 1 from public.creator_profiles cp where cp.id = creator_id and cp.user_id = auth.uid()));
 
--- Submission policies
-create policy "Creators can view their submissions"
-on public.film_submissions for select to authenticated
-using (exists (
-  select 1 from public.creator_profiles cp
-  where cp.id = creator_id and cp.user_id = auth.uid()
-));
-
-create policy "Creators can create submissions"
-on public.film_submissions for insert to authenticated
-with check (exists (
-  select 1 from public.creator_profiles cp
-  where cp.id = creator_id and cp.user_id = auth.uid()
-));
-
-create policy "Creators can update draft submissions"
-on public.film_submissions for update to authenticated
-using (exists (
-  select 1 from public.creator_profiles cp
-  where cp.id = creator_id and cp.user_id = auth.uid()
-))
-with check (exists (
-  select 1 from public.creator_profiles cp
-  where cp.id = creator_id and cp.user_id = auth.uid()
-));
-
--- Public plan catalog
-create policy "Anyone can view active subscription plans"
-on public.subscription_plans for select to anon, authenticated
+create policy "Anyone can view active subscription plans" on public.subscription_plans for select to anon, authenticated
 using (is_active = true);
-
--- User subscription policies
-create policy "Users can view their subscriptions"
-on public.subscriptions for select to authenticated
+create policy "Users can view their subscriptions" on public.subscriptions for select to authenticated
 using (auth.uid() = user_id);
-
--- User notifications
-create policy "Users can view their notifications"
-on public.notifications for select to authenticated
+create policy "Users can view their notifications" on public.notifications for select to authenticated
 using (auth.uid() = user_id);
+create policy "Users can mark their notifications read" on public.notifications for update to authenticated
+using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Users can mark their notifications read"
-on public.notifications for update to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
--- Indexes
 create index if not exists creator_profiles_user_idx on public.creator_profiles(user_id);
 create index if not exists film_submissions_creator_status_idx on public.film_submissions(creator_id, status);
 create index if not exists subscriptions_user_status_idx on public.subscriptions(user_id, status);
