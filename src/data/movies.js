@@ -7,7 +7,7 @@ export const movies = [
   { id: 6, title: 'A New Dawn', year: 2025, genre: 'Drama', duration: '1h 41m', image: 'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=900&q=80', description: 'A fictional story about hope, change and starting again.' },
   { id: 7, title: 'Ubumwe', year: 2026, genre: 'Drama', duration: '1h 58m', image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=900&q=80', description: 'A fictional drama exploring community and the meaning of unity.' },
   { id: 8, title: 'Kigali Love', year: 2025, genre: 'Romance', duration: '1h 46m', image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80', description: 'A fictional romantic story set against modern Kigali.' },
-  { id: 9, title: 'Inzira', year: 2026, genre: 'Drama', duration: '1h 39m', image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80', description: 'A fictional story about choices, consequences and finding your way.' },
+  { id: 9, title: 'Inzira', year: 2026, genre: 'Drama', duration: '1h 39m', image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e0?auto=format&fit=crop&w=900&q=80', description: 'A fictional story about choices, consequences and finding your way.' },
   { id: 10, title: 'The Village', year: 2025, genre: 'Culture', duration: '1h 29m', image: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?auto=format&fit=crop&w=900&q=80', description: 'A fictional cultural story centered around community life.' },
   { id: 11, title: 'Home Again', year: 2026, genre: 'Drama', duration: '1h 50m', image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80', description: 'A fictional story about returning home after years abroad.' },
   { id: 12, title: 'Kanyarwanda', year: 2025, genre: 'History', duration: '1h 57m', image: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=900&q=80', description: "A fictional historical film concept celebrating Rwanda's heritage." },
@@ -15,6 +15,14 @@ export const movies = [
   { id: 14, title: 'Rwanda Today', year: 2026, genre: 'Documentary', duration: '1h 32m', image: 'https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=900&q=80', description: 'A fictional documentary exploring contemporary Rwanda.' },
   { id: 15, title: 'The Last Letter', year: 2026, genre: 'Drama', duration: '1h 44m', image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80', description: 'A fictional emotional drama built around a mysterious letter.' },
   { id: 16, title: 'Kigali Dreams', year: 2026, genre: 'Drama', duration: '1h 37m', image: 'https://images.unsplash.com/photo-1449157291145-7efd050a4d0e?auto=format&fit=crop&w=900&q=80', description: 'A fictional coming-of-age story about ambition and life in Kigali.' },
+  { id: 17, title: 'Laughing in Kigali', year: 2026, genre: 'Comedy', duration: '1h 31m', image: 'https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=900&q=80', description: 'A fictional feel-good comedy about friendship, family and unexpected opportunities.' },
+  { id: 18, title: 'Land of a Thousand Hills', year: 2025, genre: 'Documentary', duration: '1h 18m', image: 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&w=900&q=80', description: 'A fictional documentary journey through Rwanda’s landscapes and communities.' },
+  { id: 19, title: 'Umucyo', year: 2026, genre: 'Culture', duration: '1h 42m', image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80', description: 'A fictional cultural drama about tradition, change and finding a voice.' },
+  { id: 20, title: 'The Last Safari', year: 2025, genre: 'Adventure', duration: '1h 55m', image: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=900&q=80', description: 'A fictional adventure story inspired by Rwanda’s extraordinary natural landscapes.' },
+  { id: 21, title: 'Letters from Home', year: 2026, genre: 'Romance', duration: '1h 43m', image: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=80', description: 'A fictional romance about two people reconnecting across distance.' },
+  { id: 22, title: 'Our Kigali', year: 2026, genre: 'History', duration: '1h 26m', image: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=900&q=80', description: 'A fictional historical documentary concept tracing a city through generations.' },
+  { id: 23, title: 'Family Table', year: 2025, genre: 'Comedy', duration: '1h 38m', image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80', description: 'A fictional family comedy where one dinner brings generations together.' },
+  { id: 24, title: 'Beyond Kigali', year: 2026, genre: 'Adventure', duration: '1h 49m', image: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=900&q=80', description: 'A fictional road adventure discovering new places, people and possibilities.' },
 ]
 
 export const categories = [
@@ -22,4 +30,7 @@ export const categories = [
   { name: 'Comedy', image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=900&q=80' },
   { name: 'Culture', image: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?auto=format&fit=crop&w=900&q=80' },
   { name: 'Documentary', image: 'https://images.unsplash.com/photo-1533130061792-64b345e4a833?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Adventure', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80' },
+  { name: 'History', image: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Romance', image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80' },
 ]
