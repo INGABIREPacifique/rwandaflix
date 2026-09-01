@@ -1,104 +1,211 @@
--- RwandaFlix initial database schema
--- Run this script once in Supabase SQL Editor.
+-- ============================================
+-- RWANDAFLIX DATABASE SETUP
+-- ============================================
 
-create extension if not exists pgcrypto;
-
+-- PROFILES
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   avatar_url text,
-  role text not null default 'viewer' check (role in ('viewer', 'creator', 'admin')),
-  created_at timestamptz not null default now()
+  country text default 'Rwanda',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
+-- MOVIES
 create table if not exists public.movies (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
-  type text not null default 'movie' check (type in ('movie', 'series')),
-  genre text,
-  release_year integer,
-  duration_minutes integer,
   poster_url text,
   backdrop_url text,
+  trailer_url text,
   video_url text,
-  is_original boolean not null default false,
-  is_published boolean not null default false,
-  creator_id uuid references public.profiles(id) on delete set null,
-  created_at timestamptz not null default now()
+  release_year integer,
+  duration_minutes integer,
+  genre text,
+  director text,
+  language text default 'Kinyarwanda',
+  is_featured boolean default false,
+  is_original boolean default false,
+  is_published boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
+-- SERIES
+create table if not exists public.series (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text,
+  poster_url text,
+  backdrop_url text,
+  trailer_url text,
+  release_year integer,
+  genre text,
+  language text default 'Kinyarwanda',
+  is_featured boolean default false,
+  is_original boolean default false,
+  is_published boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- EPISODES
+create table if not exists public.episodes (
+  id uuid primary key default gen_random_uuid(),
+  series_id uuid not null references public.series(id) on delete cascade,
+  title text not null,
+  description text,
+  episode_number integer not null,
+  season_number integer default 1,
+  duration_minutes integer,
+  video_url text,
+  thumbnail_url text,
+  created_at timestamptz default now()
+);
+
+-- WATCHLIST
 create table if not exists public.watchlist (
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  movie_id uuid not null references public.movies(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (user_id, movie_id)
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  movie_id uuid references public.movies(id) on delete cascade,
+  series_id uuid references public.series(id) on delete cascade,
+  created_at timestamptz default now()
 );
 
-create table if not exists public.watch_progress (
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  movie_id uuid not null references public.movies(id) on delete cascade,
-  progress_seconds integer not null default 0 check (progress_seconds >= 0),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, movie_id)
+-- WATCH HISTORY
+create table if not exists public.watch_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  movie_id uuid references public.movies(id) on delete cascade,
+  episode_id uuid references public.episodes(id) on delete cascade,
+  progress_seconds integer default 0,
+  completed boolean default false,
+  last_watched_at timestamptz default now()
 );
+
+-- ============================================
+-- ENABLE ROW LEVEL SECURITY
+-- ============================================
 
 alter table public.profiles enable row level security;
 alter table public.movies enable row level security;
+alter table public.series enable row level security;
+alter table public.episodes enable row level security;
 alter table public.watchlist enable row level security;
-alter table public.watch_progress enable row level security;
+alter table public.watch_history enable row level security;
 
-create policy "profiles are viewable by owner"
-on public.profiles for select
+-- ============================================
+-- PROFILES POLICIES
+-- ============================================
+
+create policy "Users can view their own profile"
+on public.profiles
+for select
+to authenticated
 using (auth.uid() = id);
 
-create policy "users can insert their profile"
-on public.profiles for insert
-with check (auth.uid() = id);
-
-create policy "users can update their profile"
-on public.profiles for update
+create policy "Users can update their own profile"
+on public.profiles
+for update
+to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
 
-create policy "published movies are public"
-on public.movies for select
-using (is_published = true or auth.uid() = creator_id);
+-- ============================================
+-- MOVIES POLICIES
+-- ============================================
 
-create policy "creators can insert their movies"
-on public.movies for insert
-authenticated
-with check (auth.uid() = creator_id);
+create policy "Anyone can view published movies"
+on public.movies
+for select
+to anon, authenticated
+using (is_published = true);
 
-create policy "creators can update their movies"
-on public.movies for update
-using (auth.uid() = creator_id)
-with check (auth.uid() = creator_id);
+-- ============================================
+-- SERIES POLICIES
+-- ============================================
 
-create policy "users manage their watchlist"
-on public.watchlist for all
+create policy "Anyone can view published series"
+on public.series
+for select
+to anon, authenticated
+using (is_published = true);
+
+-- ============================================
+-- EPISODES POLICIES
+-- ============================================
+
+create policy "Anyone can view episodes"
+on public.episodes
+for select
+to anon, authenticated
+using (true);
+
+-- ============================================
+-- WATCHLIST POLICIES
+-- ============================================
+
+create policy "Users can view their watchlist"
+on public.watchlist
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can add to watchlist"
+on public.watchlist
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can remove from watchlist"
+on public.watchlist
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+-- ============================================
+-- WATCH HISTORY POLICIES
+-- ============================================
+
+create policy "Users can view their watch history"
+on public.watch_history
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can add watch history"
+on public.watch_history
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can update watch history"
+on public.watch_history
+for update
+to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
-create policy "users manage their watch progress"
-on public.watch_progress for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+-- ============================================
+-- INDEXES
+-- ============================================
 
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-  insert into public.profiles (id, full_name)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'full_name', ''))
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
+create index if not exists movies_genre_idx
+on public.movies(genre);
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-after insert on auth.users
-for each row execute procedure public.handle_new_user();
+create index if not exists movies_featured_idx
+on public.movies(is_featured);
+
+create index if not exists series_genre_idx
+on public.series(genre);
+
+create index if not exists episodes_series_idx
+on public.episodes(series_id);
+
+create index if not exists watchlist_user_idx
+on public.watchlist(user_id);
+
+create index if not exists watch_history_user_idx
+on public.watch_history(user_id);
