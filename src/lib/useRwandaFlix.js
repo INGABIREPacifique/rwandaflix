@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react'
-import { getSession, onAuthStateChange, getCatalog, catalogToUiMovies, getRemoteWatchlist, getWatchHistory } from './platform'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  getSession,
+  onAuthStateChange,
+  getCatalog,
+  catalogToUiMovies,
+  getRemoteWatchlist,
+  getWatchHistory,
+} from './platform'
 import { movies as fallbackMovies } from '../data/movies'
 
 export function useRwandaFlix() {
@@ -10,10 +17,33 @@ export function useRwandaFlix() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const refreshAccount = useCallback(async () => {
+    if (!user) {
+      setWatchlist([])
+      setHistory([])
+      return
+    }
+
+    const [list, historyRows] = await Promise.all([
+      getRemoteWatchlist(user.id),
+      getWatchHistory(user.id),
+    ])
+    setWatchlist(list)
+    setHistory(historyRows)
+  }, [user])
+
   useEffect(() => {
     let mounted = true
-    getSession().then(session => mounted && setUser(session?.user || null)).catch(() => {})
-    const auth = onAuthStateChange((_event, session) => mounted && setUser(session?.user || null))
+    setError('')
+
+    getSession()
+      .then(session => mounted && setUser(session?.user || null))
+      .catch(err => mounted && setError(err.message || 'Unable to restore your session.'))
+
+    const auth = onAuthStateChange((_event, session) => {
+      if (mounted) setUser(session?.user || null)
+    })
+
     return () => {
       mounted = false
       auth?.data?.subscription?.unsubscribe?.()
@@ -23,23 +53,35 @@ export function useRwandaFlix() {
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    getCatalog().then(rows => {
-      if (mounted && rows.length) setCatalog(catalogToUiMovies(rows))
-    }).catch(err => mounted && setError(err.message || 'Unable to load the online catalog. Showing the local catalog.'))
+
+    getCatalog()
+      .then(rows => {
+        if (mounted && rows.length) setCatalog(catalogToUiMovies(rows))
+      })
+      .catch(err => {
+        if (mounted) setError(err.message || 'Unable to load the online catalog. Showing the local catalog.')
+      })
       .finally(() => mounted && setLoading(false))
+
     return () => { mounted = false }
   }, [])
 
   useEffect(() => {
-    if (!user) { setWatchlist([]); setHistory([]); return }
-    let mounted = true
-    Promise.all([getRemoteWatchlist(user.id), getWatchHistory(user.id)]).then(([list, historyRows]) => {
-      if (!mounted) return
-      setWatchlist(list)
-      setHistory(historyRows)
-    }).catch(err => mounted && setError(err.message || 'Unable to load your account data.'))
-    return () => { mounted = false }
-  }, [user])
+    if (!user) {
+      setWatchlist([])
+      setHistory([])
+      return
+    }
 
-  return { user, catalog, watchlist, history, loading, error }
+    let mounted = true
+    setLoading(true)
+
+    refreshAccount()
+      .catch(err => mounted && setError(err.message || 'Unable to load your account data.'))
+      .finally(() => mounted && setLoading(false))
+
+    return () => { mounted = false }
+  }, [user, refreshAccount])
+
+  return { user, catalog, watchlist, history, loading, error, refreshAccount }
 }
