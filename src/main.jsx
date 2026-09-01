@@ -6,7 +6,7 @@ import App from './App.jsx'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import RwandaFlixBackendBridge from './components/RwandaFlixBackendBridge.jsx'
 
-function Root() {
+export function Root() {
   return (
     <AppErrorBoundary>
       <RwandaFlixBackendBridge />
