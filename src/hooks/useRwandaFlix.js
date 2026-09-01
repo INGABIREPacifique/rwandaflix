@@ -65,6 +65,8 @@ export function useRwandaFlixData() {
 
   useEffect(() => {
     let mounted = true
+    // The refresh function synchronizes React state with the remote catalog/account APIs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh(user).catch(err => mounted && setError(err?.message || 'Unable to refresh RwandaFlix data.'))
     return () => { mounted = false }
   }, [refresh, user])
