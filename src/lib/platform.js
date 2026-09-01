@@ -138,3 +138,16 @@ export async function getCreatorSubmissions(creatorId) {
   if (error) throw error
   return data ?? []
 }
+
+export async function getSeriesCatalog() {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('series').select('id,catalog_key,title,description,poster_url,backdrop_url,trailer_url,release_year,genre,language,is_featured,is_original,is_published').eq('is_published', true).order('is_featured', { ascending: false }).order('release_year', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function getEpisodes(seriesId) {
+  const { data, error } = await requireClient().from('episodes').select('id,series_id,title,description,episode_number,season_number,duration_minutes,video_url,thumbnail_url').eq('series_id', seriesId).order('season_number').order('episode_number')
+  if (error) throw error
+  return data ?? []
+}
