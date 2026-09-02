@@ -6,12 +6,14 @@ import {
   catalogToUiMovies,
   getRemoteWatchlist,
   getWatchHistory,
+  getSeriesCatalog,
 } from './platform'
 import { movies as fallbackMovies } from '../data/movies'
 
 export function useRwandaFlix() {
   const [user, setUser] = useState(null)
   const [catalog, setCatalog] = useState(fallbackMovies)
+  const [series, setSeries] = useState([])
   const [watchlist, setWatchlist] = useState([])
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -68,6 +70,14 @@ export function useRwandaFlix() {
   }, [])
 
   useEffect(() => {
+    let mounted = true
+    getSeriesCatalog()
+      .then(rows => { if (mounted) setSeries(rows) })
+      .catch(() => { /* non-fatal: series section just stays empty */ })
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
     if (!user) {
       setWatchlist([])
       setHistory([])
@@ -81,5 +91,5 @@ export function useRwandaFlix() {
     return () => { mounted = false }
   }, [user, refreshAccount])
 
-  return { user, catalog, watchlist, history, loading, error, refreshAccount }
+  return { user, catalog, series, watchlist, history, loading, error, refreshAccount }
 }

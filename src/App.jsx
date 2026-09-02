@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart3, Bell, Check, ChevronRight, Clock3, Download,
-  Film, Heart, Info, Menu, Play, Plus, Search, Settings, Star, User, X
+  Film, Heart, Info, Menu, Play, Plus, Search, Settings, Star, Tv, User, X
 } from 'lucide-react'
 import { movies, categories } from './data/movies'
 import { useRwandaFlix } from './lib/useRwandaFlix'
@@ -14,6 +14,9 @@ import {
   signOut,
   signUpWithPassword,
   upsertWatchProgress,
+  upsertEpisodeProgress,
+  getEpisodes,
+  getEpisodeProgressMap,
   getMovieRatings,
   upsertMovieRating,
   getRatingsSummary,
@@ -43,6 +46,34 @@ function MovieCard({ movie, onInfo, onPlay, onToggleList, inList }) {
   )
 }
 
+function SeriesCard({ show, onClick }) {
+  return (
+    <article className="movie-card" onClick={() => onClick(show)}>
+      <img src={show.poster_url || show.backdrop_url} alt={show.title} loading="lazy" />
+      <div className="movie-overlay">
+        <div className="rating"><Tv size={12} /> Series</div>
+        <strong>{show.title}</strong>
+        <span>{show.release_year || ''} · {show.genre || 'Drama'}</span>
+      </div>
+    </article>
+  )
+}
+
+function EpisodeRow({ episode, series, progress, onPlay }) {
+  const pct = episode.duration_minutes ? Math.min(100, Math.round(((progress?.progress || 0) / (episode.duration_minutes * 60)) * 100)) : 0
+  return (
+    <div className="wide-card" onClick={() => onPlay(episode, series)}>
+      <img src={episode.thumbnail_url || series.poster_url} alt="" />
+      <div className="watch-progress"><i style={{ width: `${pct}%` }} /></div>
+      <div className="wide-content">
+        <strong>S{episode.season_number ?? 1}E{episode.episode_number} · {episode.title}</strong>
+        <span><Clock3 size={12}/> {episode.duration_minutes ? `${episode.duration_minutes}m` : ''} {progress?.completed ? '· Watched' : ''}</span>
+      </div>
+      <button className="mini-play" onClick={e => { e.stopPropagation(); onPlay(episode, series) }} aria-label={`Play ${episode.title}`}><Play size={14} fill="currentColor" /></button>
+    </div>
+  )
+}
+
 function Row({ title, items, onInfo, onPlay, onToggleList, list, onSeeAll }) {
   return (
     <section className="section">
@@ -58,7 +89,7 @@ function Row({ title, items, onInfo, onPlay, onToggleList, list, onSeeAll }) {
 }
 
 function App() {
-  const { user, catalog, watchlist, history, loading: backendLoading, error: backendError, refreshAccount } = useRwandaFlix()
+  const { user, catalog, series, watchlist, history, loading: backendLoading, error: backendError, refreshAccount } = useRwandaFlix()
   const baseLibraryMovies = catalog.length ? catalog : movies
 
   const [selected, setSelected] = useState(null)
@@ -72,7 +103,9 @@ function App() {
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const pathToPage = { '/': 'home', '/browse': 'browse', '/my-list': 'my-list' }
-  const activePage = pathToPage[location.pathname] || 'home'
+  const seriesDetailMatch = location.pathname.match(/^\/series\/([^/]+)$/)
+  const activeSeriesId = seriesDetailMatch ? decodeURIComponent(seriesDetailMatch[1]) : null
+  const activePage = pathToPage[location.pathname] || (location.pathname.startsWith('/series') ? 'series' : 'home')
   const [list, setList] = useState(new Set([4, 11]))
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -84,6 +117,10 @@ function App() {
   const [myRating, setMyRating] = useState(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [accountTab, setAccountTab] = useState('profile')
+  const [seriesEpisodes, setSeriesEpisodes] = useState([])
+  const [episodeProgress, setEpisodeProgress] = useState({})
+  const [episodesLoading, setEpisodesLoading] = useState(false)
+  const [episodesError, setEpisodesError] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -159,6 +196,45 @@ function App() {
     document.body.classList.toggle('modal-open', Boolean(selected || player || login || accountOpen))
     return () => document.body.classList.remove('modal-open')
   }, [selected, player, login, accountOpen])
+
+  useEffect(() => {
+    let mounted = true
+    if (!activeSeriesId) {
+      setSeriesEpisodes([])
+      setEpisodeProgress({})
+      setEpisodesError('')
+      return undefined
+    }
+    setEpisodesLoading(true)
+    setEpisodesError('')
+    getEpisodes(activeSeriesId)
+      .then(rows => { if (mounted) setSeriesEpisodes(rows) })
+      .catch(err => { if (mounted) setEpisodesError(err.message || 'Unable to load episodes') })
+      .finally(() => mounted && setEpisodesLoading(false))
+    if (user) {
+      getEpisodeProgressMap(user.id, activeSeriesId)
+        .then(map => { if (mounted) setEpisodeProgress(map) })
+        .catch(() => {})
+    } else {
+      setEpisodeProgress({})
+    }
+    return () => { mounted = false }
+  }, [activeSeriesId, user])
+
+  const activeSeries = useMemo(() => series.find(s => String(s.id) === activeSeriesId) || null, [series, activeSeriesId])
+
+  const openEpisodePlayer = (episode, show) => {
+    setSelected(null)
+    setPlayer({
+      id: `episode-${episode.id}`,
+      dbId: episode.id,
+      kind: 'episode',
+      title: `${show.title} · S${episode.season_number ?? 1}E${episode.episode_number} — ${episode.title}`,
+      image: episode.thumbnail_url || show.poster_url,
+      videoUrl: episode.video_url,
+      duration: episode.duration_minutes ? `${episode.duration_minutes}m` : '',
+    })
+  }
 
   useEffect(() => {
     if (!user) {
@@ -290,10 +366,15 @@ function App() {
     .filter(Boolean)
   const continueMovies = historyItems
 
-  const savePlayback = async (movie, progressSeconds = 0, completed = false) => {
-    if (!user || !movie?.dbId) return
+  const savePlayback = async (item, progressSeconds = 0, completed = false) => {
+    if (!user || !item?.dbId) return
     try {
-      await upsertWatchProgress(user.id, movie.dbId, progressSeconds, completed)
+      if (item.kind === 'episode') {
+        await upsertEpisodeProgress(user.id, item.dbId, progressSeconds, completed)
+        if (activeSeriesId) getEpisodeProgressMap(user.id, activeSeriesId).then(setEpisodeProgress).catch(() => {})
+      } else {
+        await upsertWatchProgress(user.id, item.dbId, progressSeconds, completed)
+      }
       await refreshAccount()
     } catch (error) {
       toast(error.message || 'Unable to save watch progress')
@@ -314,6 +395,11 @@ function App() {
 
   const handleLoadedMetadata = (event) => {
     if (!player) return
+    if (player.kind === 'episode') {
+      const existing = episodeProgress[player.dbId]
+      if (existing?.progress && !existing.completed) event.currentTarget.currentTime = existing.progress
+      return
+    }
     const existing = history.find(row => row.movie_id === player.dbId)
     if (existing?.progress_seconds && !existing.completed) {
       event.currentTarget.currentTime = existing.progress_seconds
@@ -338,7 +424,8 @@ function App() {
 
         <div className={`nav-links ${mobileOpen ? 'open' : ''}`}>
           <button className={activePage === 'home' ? 'active' : ''} onClick={() => goTo('home')}>Home</button>
-          <button className={activePage === 'browse' ? 'active' : ''} onClick={() => goTo('browse')}>Movies & Series</button>
+          <button className={activePage === 'browse' ? 'active' : ''} onClick={() => goTo('browse')}>Movies</button>
+          <button className={activePage === 'series' ? 'active' : ''} onClick={() => navigate('/series')}>Series</button>
           <button onClick={() => { setActiveGenre('Drama'); goTo('browse') }}>Genres</button>
           <button className={activePage === 'my-list' ? 'active' : ''} onClick={() => goTo('my-list')}>My List <span className="nav-count">{list.size}</span></button>
         </div>
@@ -398,9 +485,42 @@ function App() {
 
       {activePage === 'browse' && (
         <main className="browse-page">
-          <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Movies & Series</h1><p>Explore stories made in Rwanda and stories made for Rwandans everywhere.</p></div><div className="library-count">{filteredMovies.length}<span> titles</span></div></div>
+          <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Movies</h1><p>Explore stories made in Rwanda and stories made for Rwandans everywhere.</p></div><div className="library-count">{filteredMovies.length}<span> titles</span></div></div>
           <div className="filter-bar"><div className="genre-pills">{genres.map(genre => <button key={genre} className={activeGenre === genre ? 'selected' : ''} onClick={() => setActiveGenre(genre)}>{genre}</button>)}</div><label className="browse-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search titles, genres..." aria-label="Search titles and genres" /></label></div>
           {backendLoading && !catalog.length ? <div className="loading-state">Loading catalog…</div> : filteredMovies.length ? <div className="browse-grid">{filteredMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList={list.has(movie.id)} />)}</div> : <div className="empty-state"><Search size={40}/><h2>No titles found</h2><p>Try another search or genre.</p><Button className="secondary" onClick={() => { setQuery(''); setActiveGenre('All') }}>Clear filters</Button></div>}
+        </main>
+      )}
+
+      {activePage === 'series' && !activeSeriesId && (
+        <main className="browse-page">
+          <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Series</h1><p>Rwandan stories told across episodes and seasons.</p></div><div className="library-count">{series.length}<span> shows</span></div></div>
+          {backendLoading && !series.length ? <div className="loading-state">Loading series…</div> : series.length ? <div className="browse-grid">{series.map(show => <SeriesCard key={show.id} show={show} onClick={s => navigate(`/series/${s.id}`)} />)}</div> : <div className="empty-state"><Tv size={40}/><h2>No series published yet</h2><p>Check back soon — RwandaFlix Originals series are on the way.</p><Button className="secondary" onClick={() => goTo('browse')}>Browse movies instead</Button></div>}
+        </main>
+      )}
+
+      {activePage === 'series' && activeSeriesId && (
+        <main className="browse-page">
+          {episodesLoading && !activeSeries ? <div className="loading-state">Loading series…</div> : !activeSeries ? (
+            <div className="empty-state"><Tv size={40}/><h2>Series not found</h2><p>This series may have been unpublished.</p><Button className="secondary" onClick={() => navigate('/series')}>Back to Series</Button></div>
+          ) : (
+            <>
+              <div className="page-heading"><div><div className="eyebrow">Series · {activeSeries.release_year || ''}</div><h1>{activeSeries.title}</h1><p>{activeSeries.description}</p></div></div>
+              {episodesError && <p className="empty-state" style={{ padding: '12px 0' }}>{episodesError}</p>}
+              {episodesLoading ? <div className="loading-state">Loading episodes…</div> : seriesEpisodes.length ? (
+                Object.entries(seriesEpisodes.reduce((acc, ep) => {
+                  const season = ep.season_number ?? 1
+                  acc[season] = acc[season] || []
+                  acc[season].push(ep)
+                  return acc
+                }, {})).map(([season, episodes]) => (
+                  <section className="section" key={season}>
+                    <div className="section-header"><h2>Season {season}</h2></div>
+                    <div className="wide-row wide-row-stacked">{episodes.map(ep => <EpisodeRow key={ep.id} episode={ep} series={activeSeries} progress={episodeProgress[ep.id]} onPlay={openEpisodePlayer} />)}</div>
+                  </section>
+                ))
+              ) : <div className="empty-state"><Tv size={40}/><h2>No episodes published yet</h2><p>Episodes for this series will appear here once published.</p></div>}
+            </>
+          )}
         </main>
       )}
 
@@ -408,7 +528,7 @@ function App() {
         <main className="browse-page"><div className="page-heading"><div><div className="eyebrow">Your Library</div><h1>My List</h1><p>Save the Rwandan stories you want to watch next.</p></div><div className="library-count">{list.size}<span> saved</span></div></div>{myListMovies.length ? <div className="browse-grid">{myListMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList />)}</div> : <div className="empty-state"><Heart size={40}/><h2>Your list is empty</h2><p>Tap the + button on a title to save it here.</p><Button className="primary" onClick={() => goTo('browse')}>Browse titles</Button></div>}</main>
       )}
 
-      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies & Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => toast('Partner program coming soon')}>Partner With Us</button><button onClick={() => toast('Creator guidelines coming soon')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => toast('Help Center coming soon')}>Help Center</button><button onClick={() => toast('Terms coming soon')}>Terms</button><button onClick={() => toast('Privacy page coming soon')}>Privacy</button><button onClick={() => toast('Contact support will be connected later')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
+      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => toast('Partner program coming soon')}>Partner With Us</button><button onClick={() => toast('Creator guidelines coming soon')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => toast('Help Center coming soon')}>Help Center</button><button onClick={() => toast('Terms coming soon')}>Terms</button><button onClick={() => toast('Privacy page coming soon')}>Privacy</button><button onClick={() => toast('Contact support will be connected later')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
 
       {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button></div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
