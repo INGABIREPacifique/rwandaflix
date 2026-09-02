@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import './App.css'
 import App from './App.jsx'
@@ -10,7 +11,9 @@ export function Root() {
   return (
     <AppErrorBoundary>
       <RwandaFlixBackendBridge />
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </AppErrorBoundary>
   )
 }

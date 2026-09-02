@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart3, Bell, Check, ChevronRight, Clock3, Download,
   Film, Heart, Info, Menu, Play, Plus, Search, Settings, Star, User, X
@@ -67,7 +68,11 @@ function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [activeGenre, setActiveGenre] = useState('All')
-  const [activePage, setActivePage] = useState('home')
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const pathToPage = { '/': 'home', '/browse': 'browse', '/my-list': 'my-list' }
+  const activePage = pathToPage[location.pathname] || 'home'
   const [list, setList] = useState(new Set([4, 11]))
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -143,6 +148,14 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const movieId = searchParams.get('movie')
+    if (!movieId || !libraryMovies.length || player) return
+    const match = libraryMovies.find(m => String(m.id) === movieId)
+    if (match && selected?.id !== match.id) setSelected(match)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, libraryMovies, player])
+
+  useEffect(() => {
     document.body.classList.toggle('modal-open', Boolean(selected || player || login || accountOpen))
     return () => document.body.classList.remove('modal-open')
   }, [selected, player, login, accountOpen])
@@ -157,7 +170,18 @@ function App() {
 
   const openPlayer = (movie = featured) => {
     setSelected(null)
+    setSearchParams(params => { params.delete('movie'); return params }, { replace: true })
     setPlayer(movie)
+  }
+
+  const openDetail = (movie) => {
+    setSelected(movie)
+    setSearchParams(params => { params.set('movie', String(movie.id)); return params }, { replace: true })
+  }
+
+  const closeDetail = () => {
+    setSelected(null)
+    setSearchParams(params => { params.delete('movie'); return params }, { replace: true })
   }
 
   const toggleList = async (movie) => {
@@ -246,8 +270,9 @@ function App() {
     return result
   }, [libraryMovies, query, activeGenre])
 
+  const pageToPath = { home: '/', browse: '/browse', 'my-list': '/my-list' }
   const goTo = (page) => {
-    setActivePage(page)
+    navigate(pageToPath[page] || '/')
     setMobileOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -319,7 +344,7 @@ function App() {
         </div>
 
         <div className="nav-right">
-          <label className="search-box"><Search size={16}/><input value={query} onChange={e => { setQuery(e.target.value); if (e.target.value) setActivePage('browse') }} placeholder="Search RwandaFlix" aria-label="Search RwandaFlix" /></label>
+          <label className="search-box"><Search size={16}/><input value={query} onChange={e => { setQuery(e.target.value); if (e.target.value && activePage !== 'browse') navigate('/browse') }} placeholder="Search RwandaFlix" aria-label="Search RwandaFlix" /></label>
           <div className="notification-wrap">
             <button className="icon-btn" onClick={() => openAccount('notifications')} aria-label="Notifications"><Bell size={18}/><i /></button>
           </div>
@@ -355,17 +380,17 @@ function App() {
             <button onClick={() => openAccount('creator')}><BarChart3 size={17}/><span><strong>For Creators</strong><small>Publish your stories</small></span></button>
           </div>
 
-          <Row title="🔥 Trending in Rwanda" items={libraryMovies.slice(0, 6)} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
-          <Row title="⭐ Popular Rwandan Stories" items={libraryMovies.slice(6, 12)} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
+          <Row title="🔥 Trending in Rwanda" items={libraryMovies.slice(0, 6)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
+          <Row title="⭐ Popular Rwandan Stories" items={libraryMovies.slice(6, 12)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
 
           {continueMovies.length > 0 && <section className="section" id="continue"><div className="section-header"><h2>▶ Continue Watching</h2><button className="see-all" onClick={() => user ? toast('Your watch history is synced with your RwandaFlix account') : toast('Sign in to sync your watch history')}>Manage <ChevronRight size={15} /></button></div><div className="wide-row">{continueMovies.map((m) => <div className="wide-card" key={m.id} onClick={() => openPlayer(m)}><img src={m.image} alt=""/><div className="watch-progress"><i style={{ width: `${m.progress || 0}%` }} /></div><div className="wide-content"><strong>{m.title}</strong><span><Clock3 size={12}/> Continue watching · {m.duration}</span></div><button className="mini-play" onClick={e => { e.stopPropagation(); openPlayer(m) }} aria-label={`Play ${m.title}`}><Play size={14} fill="currentColor" /></button></div>)}</div></section>}
 
           <section className="creator-panel"><div><div className="eyebrow">Built for Rwandan creators</div><h2>One platform for Rwanda's cinema industry.</h2><p>RwandaFlix gives filmmakers, producers and studios a dedicated digital home to showcase their work, understand their audience and reach viewers in Rwanda and around the world.</p><Button className="primary" onClick={() => openAccount('creator')}>Open Creator Studio <ChevronRight size={17}/></Button></div><div className="creator-stats"><div><strong>🇷🇼</strong><span>Local Stories</span></div><div><strong>HD</strong><span>Streaming</span></div><div><strong>🌍</strong><span>Global Audience</span></div></div></section>
 
-          <Row title="🎬 RwandaFlix Originals" items={libraryMovies.slice(2, 8)} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
+          <Row title="🎬 RwandaFlix Originals" items={libraryMovies.slice(2, 8)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
 
           <section className="section" id="categories"><div className="section-header"><h2>Explore by Genre</h2><button className="see-all" onClick={() => goTo('browse')}>View library <ChevronRight size={15}/></button></div><div className="category-row">{categories.map(c => <button className="category" key={c.name} onClick={() => { setActiveGenre(c.name); goTo('browse') }}><img src={c.image} alt=""/><span>{c.name}</span><strong>Explore <ChevronRight size={14}/></strong></button>)}</div></section>
-          <Row title="🌍 Made for the Diaspora" items={libraryMovies.slice(10, 16)} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
+          <Row title="🌍 Made for the Diaspora" items={libraryMovies.slice(10, 16)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
 
           <section className="pricing"><div className="pricing-header"><div className="eyebrow">Membership</div><h2>Watch Rwanda. Anywhere.</h2><p>Choose a plan that works for you. This prototype shows the future RwandaFlix subscription experience.</p></div><div className="pricing-grid">{[['Free','$0','Selected movies','Standard quality','Ads supported','1 device'],['Premium','$5.99','Full movie library','HD streaming','No ads','2 devices'],['Family','$9.99','Full movie library','4K ready','No ads','5 profiles']].map((p,i)=><div className={`price-card ${i===1?'featured':''}`} key={p[0]}>{i===1 && <span className="popular-badge">Most Popular</span>}<h3>{p[0]}</h3><div className="price">{p[1]} <span>/ month</span></div><ul>{p.slice(2).map(x=><li key={x}><Check size={14}/> {x}</li>)}</ul><Button className={i===1?'primary':'secondary'} onClick={() => openAccount('subscription')}>Choose {p[0]}</Button></div>)}</div></section>
         </>
@@ -375,17 +400,17 @@ function App() {
         <main className="browse-page">
           <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Movies & Series</h1><p>Explore stories made in Rwanda and stories made for Rwandans everywhere.</p></div><div className="library-count">{filteredMovies.length}<span> titles</span></div></div>
           <div className="filter-bar"><div className="genre-pills">{genres.map(genre => <button key={genre} className={activeGenre === genre ? 'selected' : ''} onClick={() => setActiveGenre(genre)}>{genre}</button>)}</div><label className="browse-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search titles, genres..." aria-label="Search titles and genres" /></label></div>
-          {backendLoading && !catalog.length ? <div className="loading-state">Loading catalog…</div> : filteredMovies.length ? <div className="browse-grid">{filteredMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} inList={list.has(movie.id)} />)}</div> : <div className="empty-state"><Search size={40}/><h2>No titles found</h2><p>Try another search or genre.</p><Button className="secondary" onClick={() => { setQuery(''); setActiveGenre('All') }}>Clear filters</Button></div>}
+          {backendLoading && !catalog.length ? <div className="loading-state">Loading catalog…</div> : filteredMovies.length ? <div className="browse-grid">{filteredMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList={list.has(movie.id)} />)}</div> : <div className="empty-state"><Search size={40}/><h2>No titles found</h2><p>Try another search or genre.</p><Button className="secondary" onClick={() => { setQuery(''); setActiveGenre('All') }}>Clear filters</Button></div>}
         </main>
       )}
 
       {activePage === 'my-list' && (
-        <main className="browse-page"><div className="page-heading"><div><div className="eyebrow">Your Library</div><h1>My List</h1><p>Save the Rwandan stories you want to watch next.</p></div><div className="library-count">{list.size}<span> saved</span></div></div>{myListMovies.length ? <div className="browse-grid">{myListMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={setSelected} onPlay={openPlayer} onToggleList={toggleList} inList />)}</div> : <div className="empty-state"><Heart size={40}/><h2>Your list is empty</h2><p>Tap the + button on a title to save it here.</p><Button className="primary" onClick={() => goTo('browse')}>Browse titles</Button></div>}</main>
+        <main className="browse-page"><div className="page-heading"><div><div className="eyebrow">Your Library</div><h1>My List</h1><p>Save the Rwandan stories you want to watch next.</p></div><div className="library-count">{list.size}<span> saved</span></div></div>{myListMovies.length ? <div className="browse-grid">{myListMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList />)}</div> : <div className="empty-state"><Heart size={40}/><h2>Your list is empty</h2><p>Tap the + button on a title to save it here.</p><Button className="primary" onClick={() => goTo('browse')}>Browse titles</Button></div>}</main>
       )}
 
       <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies & Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => toast('Partner program coming soon')}>Partner With Us</button><button onClick={() => toast('Creator guidelines coming soon')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => toast('Help Center coming soon')}>Help Center</button><button onClick={() => toast('Terms coming soon')}>Terms</button><button onClick={() => toast('Privacy page coming soon')}>Privacy</button><button onClick={() => toast('Contact support will be connected later')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
 
-      {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && setSelected(null)}><div className="modal-box"><button className="close" onClick={() => setSelected(null)} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button></div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
+      {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button></div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
       {player && <div className="modal" role="dialog" aria-modal="true" aria-label={`${player.title} player`} onClick={e => e.target === e.currentTarget && handleClosePlayer()}><div className="video-box"><button className="close" onClick={handleClosePlayer} aria-label="Close player"><X/></button><div className="video-screen">{player.videoUrl ? <video className="rwanda-video" src={player.videoUrl} controls playsInline poster={player.image} onLoadedMetadata={handleLoadedMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => savePlayback(player, playerProgressRef.current, false)} onEnded={handleVideoEnded} /> : <><div className="player-brand">RWANDA<span>FLIX</span></div><div className="player-center"><button className="big-play" onClick={() => toast('Demo player ready — add a published video URL to stream this title')} aria-label={`Play ${player.title}`}><Play size={34} fill="currentColor"/></button><h3>{player.title}</h3><p>Streaming is ready for published Supabase video URLs.</p></div></>}</div>{!player.videoUrl && <div className="video-controls"><span>▶</span><div className="progress"><i /></div><span>🔊</span><span>CC</span><span>⚙</span><span>⛶</span></div>}</div></div>}
 
