@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Bell, User, CreditCard, Film, X } from 'lucide-react'
 import { getProfile, updateProfile, getNotifications, markNotificationRead, getPlans, getMySubscription, getCreatorProfile, updateCreatorProfile, getCreatorSubmissions } from '../lib/platform'
 
-export default function AccountCenter({ user, onClose }) {
-  const [tab,setTab]=useState('profile'),[profile,setProfile]=useState(null),[notifications,setNotifications]=useState([]),[plans,setPlans]=useState([]),[subscription,setSubscription]=useState(null),[creator,setCreator]=useState(null),[submissions,setSubmissions]=useState([]),[busy,setBusy]=useState(true),[error,setError]=useState('')
+export default function AccountCenter({ user, onClose, initialTab = 'profile' }) {
+  const [tab,setTab]=useState(initialTab),[profile,setProfile]=useState(null),[notifications,setNotifications]=useState([]),[plans,setPlans]=useState([]),[subscription,setSubscription]=useState(null),[creator,setCreator]=useState(null),[submissions,setSubmissions]=useState([]),[busy,setBusy]=useState(true),[error,setError]=useState('')
   useEffect(()=>{let live=true;Promise.all([getProfile(user.id),getNotifications(user.id),getPlans(),getMySubscription(user.id),getCreatorProfile(user.id)]).then(([p,n,pl,s,c])=>{if(!live)return;setProfile(p);setNotifications(n);setPlans(pl);setSubscription(s);setCreator(c);if(c)getCreatorSubmissions(c.id).then(setSubmissions)}).catch(e=>live&&setError(e.message)).finally(()=>live&&setBusy(false));return()=>{live=false}},[user.id])
   const save=async e=>{e.preventDefault();try{const f=new FormData(e.currentTarget);setProfile(await updateProfile(user.id,{full_name:f.get('full_name'),avatar_url:f.get('avatar_url')}))}catch(e){setError(e.message)}}
   const becomeCreator=async()=>{try{const c=await updateCreatorProfile(user.id,{display_name:profile?.full_name||user.email?.split('@')[0]||'Creator'});setCreator(c);setTab('creator')}catch(e){setError(e.message)}}

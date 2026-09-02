@@ -23,4 +23,12 @@ This migration is intended to reconcile the core RwandaFlix tables, columns, ind
 
 Run this reconciliation migration in the Supabase SQL Editor, then verify the resulting tables/policies. The application should be tested against the same project after the SQL succeeds.
 
+## 2026-09-02: ratings public-read fix
+
+Also run `supabase/migrations/20260902_ratings_public_read.sql`. Without it, the `ratings`
+table's original policy only lets a user see their own rating row, so an average rating
+can never be computed or shown to anyone (including the person who submitted it, once
+another user's row is involved). This migration only adds a policy; it does not remove
+the existing one.
+
 Do not run older creator migrations repeatedly just because they exist in Git. They remain historical migration sources; the reconciliation migration is the safer bridge for a database whose previous migration state is uncertain.
