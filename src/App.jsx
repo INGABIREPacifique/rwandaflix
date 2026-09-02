@@ -23,6 +23,60 @@ import {
 } from './lib/platform'
 import './App.css'
 
+const INFO_PAGES = {
+  help: {
+    title: 'Help Center',
+    body: [
+      'RwandaFlix is in active development. If something looks broken or a video won\u2019t play, it\u2019s most likely a title without a published video file yet, not an error on your end.',
+      'Account issues: use the Sign In / Sign Up option in the top-right profile menu. If you\u2019ve forgotten your password, contact support below for now \u2014 self-serve password reset is on the roadmap.',
+      'Playback issues: try refreshing the page. If a specific title never loads, it may not have a video URL published yet.',
+      'For anything else, reach us through the Contact page.',
+    ],
+  },
+  terms: {
+    title: 'Terms of Service',
+    draft: true,
+    body: [
+      'This is a starter Terms of Service template for RwandaFlix while the product is in development. It is not a substitute for legal advice \u2014 have a qualified lawyer review and adapt it before RwandaFlix accepts real paying subscribers.',
+      'By creating an account, you agree to use RwandaFlix for personal, non-commercial viewing only, and not to redistribute, download, or publicly broadcast any content without permission from the rights holder.',
+      'RwandaFlix reserves the right to suspend accounts that violate these terms, abuse the platform, or attempt to circumvent access controls.',
+      'Subscription plans, pricing, and billing terms will be finalized once real payment processing is enabled; no payment is currently collected through this app.',
+    ],
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    draft: true,
+    body: [
+      'This is a starter Privacy Policy template for RwandaFlix while the product is in development. It is not a substitute for legal advice \u2014 have it reviewed before real user data is collected at scale.',
+      'RwandaFlix stores your account email, watch history, watchlist, and ratings in order to provide the service. This data is protected by database-level access rules (Row Level Security) so that only you can read your own watch history, watchlist, notifications, and subscription details.',
+      'We do not sell personal data to third parties. If analytics or advertising partners are added in the future, this policy will be updated first.',
+      'You can request deletion of your account and associated data by contacting support.',
+    ],
+  },
+  contact: {
+    title: 'Contact Us',
+    body: [
+      'RwandaFlix is currently a project in active development.',
+      'For support, partnership, or creator questions, please reach out via the email associated with this project. A dedicated in-app contact form is planned for a future release.',
+    ],
+  },
+  partner: {
+    title: 'Partner With Us',
+    body: [
+      'RwandaFlix is building a home for Rwandan cinema \u2014 filmmakers, studios, and distributors are welcome to reach out about getting content onto the platform.',
+      'The Creator Studio (available from your account menu) is where verified creators will eventually manage submissions, track performance, and receive payouts once the creator platform and billing system are complete.',
+    ],
+  },
+  guidelines: {
+    title: 'Creator Guidelines',
+    body: [
+      'Content submitted to RwandaFlix should be content you own the rights to, or have explicit permission to distribute.',
+      'Submissions go through a review process before publishing. Real upload and review workflows are still being built \u2014 for now, reach out via Contact to discuss getting a title onto the platform.',
+      'RwandaFlix does not tolerate hateful, violent, or exploitative content, and reserves the right to reject or remove any submission.',
+    ],
+  },
+}
+
 function Button({ children, className = '', ...props }) {
   return <button className={`btn ${className}`} {...props}>{children}</button>
 }
@@ -105,7 +159,11 @@ function App() {
   const pathToPage = { '/': 'home', '/browse': 'browse', '/my-list': 'my-list' }
   const seriesDetailMatch = location.pathname.match(/^\/series\/([^/]+)$/)
   const activeSeriesId = seriesDetailMatch ? decodeURIComponent(seriesDetailMatch[1]) : null
-  const activePage = pathToPage[location.pathname] || (location.pathname.startsWith('/series') ? 'series' : 'home')
+  const infoSlug = location.pathname.replace(/^\//, '')
+  const activePage = pathToPage[location.pathname]
+    || (location.pathname.startsWith('/series') ? 'series' : null)
+    || (INFO_PAGES[infoSlug] ? 'info' : null)
+    || 'home'
   const [list, setList] = useState(new Set([4, 11]))
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -528,7 +586,16 @@ function App() {
         <main className="browse-page"><div className="page-heading"><div><div className="eyebrow">Your Library</div><h1>My List</h1><p>Save the Rwandan stories you want to watch next.</p></div><div className="library-count">{list.size}<span> saved</span></div></div>{myListMovies.length ? <div className="browse-grid">{myListMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList />)}</div> : <div className="empty-state"><Heart size={40}/><h2>Your list is empty</h2><p>Tap the + button on a title to save it here.</p><Button className="primary" onClick={() => goTo('browse')}>Browse titles</Button></div>}</main>
       )}
 
-      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => toast('Partner program coming soon')}>Partner With Us</button><button onClick={() => toast('Creator guidelines coming soon')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => toast('Help Center coming soon')}>Help Center</button><button onClick={() => toast('Terms coming soon')}>Terms</button><button onClick={() => toast('Privacy page coming soon')}>Privacy</button><button onClick={() => toast('Contact support will be connected later')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
+      {activePage === 'info' && INFO_PAGES[infoSlug] && (
+        <main className="browse-page">
+          <div className="page-heading"><div><div className="eyebrow">RwandaFlix</div><h1>{INFO_PAGES[infoSlug].title}</h1></div></div>
+          {INFO_PAGES[infoSlug].draft && <p className="empty-state" style={{ minHeight: 'auto', padding: '10px 16px', border: '1px solid #333', borderRadius: 8, color: '#e9b949', display: 'block', textAlign: 'left' }}>Draft template — not yet reviewed by a lawyer. Do not treat this as final legal copy.</p>}
+          <div style={{ maxWidth: 720, color: '#ccc', lineHeight: 1.8 }}>{INFO_PAGES[infoSlug].body.map((para, i) => <p key={i} style={{ marginBottom: 16 }}>{para}</p>)}</div>
+          <Button className="secondary" onClick={() => goTo('home')} style={{ marginTop: 10 }}>Back to Home</Button>
+        </main>
+      )}
+
+      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => navigate('/partner')}>Partner With Us</button><button onClick={() => navigate('/guidelines')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => navigate('/help')}>Help Center</button><button onClick={() => navigate('/terms')}>Terms</button><button onClick={() => navigate('/privacy')}>Privacy</button><button onClick={() => navigate('/contact')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
 
       {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button></div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
