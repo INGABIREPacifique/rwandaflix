@@ -8,6 +8,14 @@ import { movies, categories } from './data/movies'
 import { useRwandaFlix } from './lib/useRwandaFlix'
 import AccountCenter from './components/AccountCenter.jsx'
 import {
+  isDownloadSupported,
+  listDownloads,
+  isDownloaded,
+  deleteDownload,
+  downloadForOffline,
+  getOfflinePlaybackUrl,
+} from './lib/downloads'
+import {
   addToWatchlist,
   removeFromWatchlist,
   signInWithPassword,
@@ -162,6 +170,7 @@ function App() {
   const infoSlug = location.pathname.replace(/^\//, '')
   const activePage = pathToPage[location.pathname]
     || (location.pathname.startsWith('/series') ? 'series' : null)
+    || (location.pathname === '/downloads' ? 'downloads' : null)
     || (INFO_PAGES[infoSlug] ? 'info' : null)
     || 'home'
   const [list, setList] = useState(new Set([4, 11]))
@@ -179,6 +188,8 @@ function App() {
   const [episodeProgress, setEpisodeProgress] = useState({})
   const [episodesLoading, setEpisodesLoading] = useState(false)
   const [episodesError, setEpisodesError] = useState('')
+  const [downloads, setDownloads] = useState(() => (isDownloadSupported() ? listDownloads() : []))
+  const [downloadProgress, setDownloadProgress] = useState({})
 
   useEffect(() => {
     let mounted = true
@@ -302,10 +313,46 @@ function App() {
     setList(new Set(watchlist.map(item => item.movie_id).filter(Boolean)))
   }, [user, watchlist])
 
-  const openPlayer = (movie = featured) => {
+  const openPlayer = async (movie = featured) => {
     setSelected(null)
     setSearchParams(params => { params.delete('movie'); return params }, { replace: true })
+    if (isDownloaded(movie.id)) {
+      const offlineUrl = await getOfflinePlaybackUrl(movie.id)
+      if (offlineUrl) {
+        setPlayer({ ...movie, videoUrl: offlineUrl, isOffline: true })
+        return
+      }
+    }
     setPlayer(movie)
+  }
+
+  const handleDownload = async (item) => {
+    if (!isDownloadSupported()) {
+      toast('Offline downloads are not supported in this browser')
+      return
+    }
+    if (!item.videoUrl) {
+      toast('This title has no published video file yet — nothing to download')
+      return
+    }
+    setDownloadProgress(prev => ({ ...prev, [item.id]: 0 }))
+    try {
+      await downloadForOffline(item, pct => {
+        setDownloadProgress(prev => ({ ...prev, [item.id]: pct }))
+      })
+      setDownloads(listDownloads())
+      toast(`${item.title} downloaded for offline viewing`)
+    } catch (error) {
+      toast(error.message || 'Download failed')
+    } finally {
+      setDownloadProgress(prev => { const next = { ...prev }; delete next[item.id]; return next })
+    }
+  }
+
+  const handleRemoveDownload = async (id) => {
+    await deleteDownload(id)
+    setDownloads(listDownloads())
+    toast('Removed from downloads')
   }
 
   const openDetail = (movie) => {
@@ -471,6 +518,7 @@ function App() {
 
   const handleClosePlayer = () => {
     if (player) savePlayback(player, playerProgressRef.current, false)
+    if (player?.isOffline) URL.revokeObjectURL(player.videoUrl)
     setPlayer(null)
   }
 
@@ -521,7 +569,7 @@ function App() {
           <div className="quick-picks">
             <button onClick={() => goTo('browse')}><Film size={17}/><span><strong>Browse</strong><small>Explore the library</small></span></button>
             <button onClick={() => goTo('my-list')}><Heart size={17}/><span><strong>My List</strong><small>{list.size} saved titles</small></span></button>
-            <button onClick={() => toast('Offline downloads are planned for the next streaming phase')}><Download size={17}/><span><strong>Offline</strong><small>Watch on the go</small></span></button>
+            <button onClick={() => navigate('/downloads')}><Download size={17}/><span><strong>Offline</strong><small>{downloads.length ? `${downloads.length} downloaded` : 'Watch on the go'}</small></span></button>
             <button onClick={() => openAccount('creator')}><BarChart3 size={17}/><span><strong>For Creators</strong><small>Publish your stories</small></span></button>
           </div>
 
@@ -586,6 +634,24 @@ function App() {
         <main className="browse-page"><div className="page-heading"><div><div className="eyebrow">Your Library</div><h1>My List</h1><p>Save the Rwandan stories you want to watch next.</p></div><div className="library-count">{list.size}<span> saved</span></div></div>{myListMovies.length ? <div className="browse-grid">{myListMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList />)}</div> : <div className="empty-state"><Heart size={40}/><h2>Your list is empty</h2><p>Tap the + button on a title to save it here.</p><Button className="primary" onClick={() => goTo('browse')}>Browse titles</Button></div>}</main>
       )}
 
+      {activePage === 'downloads' && (
+        <main className="browse-page">
+          <div className="page-heading"><div><div className="eyebrow">RwandaFlix</div><h1>Downloads</h1><p>Titles saved to this device for offline viewing. Downloads live in this browser only and won't follow you to another device.</p></div><div className="library-count">{downloads.length}<span> saved</span></div></div>
+          {!isDownloadSupported() && <p className="empty-state" style={{ minHeight: 'auto', padding: '10px 16px', border: '1px solid #333', borderRadius: 8, color: '#e9b949', display: 'block', textAlign: 'left' }}>This browser doesn't support offline downloads.</p>}
+          {downloads.length ? (
+            <div className="wide-row wide-row-stacked">{downloads.map(d => (
+              <div className="wide-card" key={d.id} onClick={() => openPlayer({ id: d.id, title: d.title, image: d.image, videoUrl: d.videoUrl, duration: d.duration })}>
+                <img src={d.image} alt="" />
+                <div className="wide-content"><strong>{d.title}</strong><span><Clock3 size={12}/> {d.duration} · {(d.sizeBytes / (1024 * 1024)).toFixed(0)} MB</span></div>
+                <button className="mini-play" onClick={e => { e.stopPropagation(); handleRemoveDownload(d.id) }} aria-label={`Remove ${d.title} from downloads`}><X size={14} /></button>
+              </div>
+            ))}</div>
+          ) : (
+            <div className="empty-state"><Download size={40}/><h2>No downloads yet</h2><p>Open a title and tap Download to watch it offline. Works for titles with a published video file.</p><Button className="secondary" onClick={() => goTo('browse')}>Browse titles</Button></div>
+          )}
+        </main>
+      )}
+
       {activePage === 'info' && INFO_PAGES[infoSlug] && (
         <main className="browse-page">
           <div className="page-heading"><div><div className="eyebrow">RwandaFlix</div><h1>{INFO_PAGES[infoSlug].title}</h1></div></div>
@@ -595,9 +661,9 @@ function App() {
         </main>
       )}
 
-      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => toast('Downloads are planned for the next streaming phase')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => navigate('/partner')}>Partner With Us</button><button onClick={() => navigate('/guidelines')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => navigate('/help')}>Help Center</button><button onClick={() => navigate('/terms')}>Terms</button><button onClick={() => navigate('/privacy')}>Privacy</button><button onClick={() => navigate('/contact')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
+      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><button onClick={() => toast('Social links will be added soon')}>f</button><button onClick={() => toast('Social links will be added soon')}>◎</button><button onClick={() => toast('Social links will be added soon')}>in</button></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => navigate('/downloads')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => navigate('/partner')}>Partner With Us</button><button onClick={() => navigate('/guidelines')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => navigate('/help')}>Help Center</button><button onClick={() => navigate('/terms')}>Terms</button><button onClick={() => navigate('/privacy')}>Privacy</button><button onClick={() => navigate('/contact')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
 
-      {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button></div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
+      {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button>{isDownloadSupported() && (isDownloaded(selected.id) ? <Button className="secondary" onClick={() => handleRemoveDownload(selected.id)}><Check size={18}/> Downloaded</Button> : <Button className="secondary" disabled={downloadProgress[selected.id] !== undefined} onClick={() => handleDownload(selected)}><Download size={18}/> {downloadProgress[selected.id] !== undefined ? (downloadProgress[selected.id] === null ? 'Downloading…' : `${downloadProgress[selected.id]}%`) : 'Download'}</Button>)}</div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
       {player && <div className="modal" role="dialog" aria-modal="true" aria-label={`${player.title} player`} onClick={e => e.target === e.currentTarget && handleClosePlayer()}><div className="video-box"><button className="close" onClick={handleClosePlayer} aria-label="Close player"><X/></button><div className="video-screen">{player.videoUrl ? <video className="rwanda-video" src={player.videoUrl} controls playsInline poster={player.image} onLoadedMetadata={handleLoadedMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => savePlayback(player, playerProgressRef.current, false)} onEnded={handleVideoEnded} /> : <><div className="player-brand">RWANDA<span>FLIX</span></div><div className="player-center"><button className="big-play" onClick={() => toast('Demo player ready — add a published video URL to stream this title')} aria-label={`Play ${player.title}`}><Play size={34} fill="currentColor"/></button><h3>{player.title}</h3><p>Streaming is ready for published Supabase video URLs.</p></div></>}</div>{!player.videoUrl && <div className="video-controls"><span>▶</span><div className="progress"><i /></div><span>🔊</span><span>CC</span><span>⚙</span><span>⛶</span></div>}</div></div>}
 
