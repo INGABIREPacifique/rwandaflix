@@ -151,7 +151,7 @@ function Row({ title, items, onInfo, onPlay, onToggleList, list, onSeeAll }) {
 }
 
 function App() {
-  const { user, catalog, series, watchlist, history, loading: backendLoading, error: backendError, refreshAccount } = useRwandaFlix()
+  const { user, catalog, series, watchlist, history, loading: backendLoading, error: backendError, refreshAccount, refreshHistory } = useRwandaFlix()
   const baseLibraryMovies = catalog.length ? catalog : movies
 
   const [selected, setSelected] = useState(null)
@@ -480,7 +480,7 @@ function App() {
       } else {
         await upsertWatchProgress(user.id, item.dbId, progressSeconds, completed)
       }
-      await refreshAccount()
+      await refreshHistory()
     } catch (error) {
       toast(error.message || 'Unable to save watch progress')
     }

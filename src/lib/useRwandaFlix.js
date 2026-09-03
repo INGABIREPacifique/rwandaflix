@@ -35,6 +35,16 @@ export function useRwandaFlix() {
     return { watchlist: list, history: historyRows }
   }, [user])
 
+  const refreshHistory = useCallback(async () => {
+    if (!user) {
+      setHistory([])
+      return []
+    }
+    const historyRows = await getWatchHistory(user.id)
+    setHistory(historyRows)
+    return historyRows
+  }, [user])
+
   useEffect(() => {
     let mounted = true
     setError('')
@@ -91,5 +101,5 @@ export function useRwandaFlix() {
     return () => { mounted = false }
   }, [user, refreshAccount])
 
-  return { user, catalog, series, watchlist, history, loading, error, refreshAccount }
+  return { user, catalog, series, watchlist, history, loading, error, refreshAccount, refreshHistory }
 }
