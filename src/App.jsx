@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart3, Bell, Check, ChevronRight, Clock3, Download,
-  Film, Heart, Info, Menu, Play, Plus, Search, Settings, Star, Tv, User, X
+  Film, Heart, Info, Menu, Pause, Play, Plus, Search, Settings, Star, Tv, User, Volume2, VolumeX, Maximize, X
 } from 'lucide-react'
 import { movies, categories } from './data/movies'
 import { useRwandaFlix } from './lib/useRwandaFlix'
@@ -87,6 +87,97 @@ const INFO_PAGES = {
 
 function Button({ children, className = '', ...props }) {
   return <button className={`btn ${className}`} {...props}>{children}</button>
+}
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave, onEnded, onError }) {
+  const videoRef = useRef(null)
+  const hideTimerRef = useRef(null)
+  const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [muted, setMuted] = useState(false)
+  const [showControls, setShowControls] = useState(true)
+
+  const scheduleHide = () => {
+    clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => {
+      if (videoRef.current && !videoRef.current.paused) setShowControls(false)
+    }, 3000)
+  }
+
+  const wake = () => {
+    setShowControls(true)
+    scheduleHide()
+  }
+
+  const togglePlay = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) v.play(); else v.pause()
+  }
+
+  const toggleMute = () => {
+    const v = videoRef.current
+    if (!v) return
+    v.muted = !v.muted
+    setMuted(v.muted)
+  }
+
+  const toggleFullscreen = () => {
+    const box = videoRef.current?.closest('.video-screen')
+    if (!box) return
+    if (document.fullscreenElement) document.exitFullscreen()
+    else box.requestFullscreen?.()
+  }
+
+  const handleSeek = (e) => {
+    const v = videoRef.current
+    if (!v || !duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    v.currentTime = pct * duration
+  }
+
+  useEffect(() => () => clearTimeout(hideTimerRef.current), [])
+
+  return (
+    <div className="custom-player" onMouseMove={wake} onClick={wake}>
+      <video
+        ref={videoRef}
+        className="rwanda-video"
+        src={src}
+        poster={poster}
+        playsInline
+        onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); onLoadedMetadata?.(e) }}
+        onTimeUpdate={(e) => { setCurrent(e.currentTarget.currentTime); onTimeUpdate?.(e) }}
+        onPlay={() => { setPlaying(true); scheduleHide() }}
+        onPause={() => { setPlaying(false); setShowControls(true); clearTimeout(hideTimerRef.current); onPauseSave?.() }}
+        onEnded={() => { setPlaying(false); setShowControls(true); onEnded?.() }}
+        onError={onError}
+        onClick={(e) => { e.stopPropagation(); togglePlay() }}
+      />
+      {!playing && <button className="big-play" onClick={togglePlay} aria-label="Play"><Play size={34} fill="currentColor" /></button>}
+      <div className={`custom-controls ${showControls ? 'visible' : ''}`}>
+        <div className="seek-bar" onClick={handleSeek}>
+          <div className="seek-fill" style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }} />
+        </div>
+        <div className="controls-row">
+          <button onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}</button>
+          <button onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'}>{muted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
+          <span className="time">{formatTime(current)} / {formatTime(duration)}</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={toggleFullscreen} aria-label="Fullscreen"><Maximize size={18} /></button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function MovieCard({ movie, onInfo, onPlay, onToggleList, inList }) {
@@ -669,7 +760,7 @@ function App() {
 
       {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button>{isDownloadSupported() && (isDownloaded(selected.id) ? <Button className="secondary" onClick={() => handleRemoveDownload(selected.id)}><Check size={18}/> Downloaded</Button> : <Button className="secondary" disabled={downloadProgress[selected.id] !== undefined} onClick={() => handleDownload(selected)}><Download size={18}/> {downloadProgress[selected.id] !== undefined ? (downloadProgress[selected.id] === null ? 'Downloading…' : `${downloadProgress[selected.id]}%`) : 'Download'}</Button>)}</div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
-      {player && <div className="modal" role="dialog" aria-modal="true" aria-label={`${player.title} player`} onClick={e => e.target === e.currentTarget && handleClosePlayer()}><div className="video-box"><button className="close" onClick={handleClosePlayer} aria-label="Close player"><X/></button><div className="video-screen">{player.videoUrl ? <video className="rwanda-video" src={player.videoUrl} controls playsInline poster={player.image} onLoadedMetadata={handleLoadedMetadata} onTimeUpdate={handleTimeUpdate} onPause={() => savePlayback(player, playerProgressRef.current, false)} onEnded={handleVideoEnded} onError={(e) => { const err = e.currentTarget.error; const messages = { 1: 'Playback was aborted.', 2: 'Network error — the video could not be fetched. Check the URL is correct and publicly reachable.', 3: "The video file couldn't be decoded — check the format is a browser-supported codec (H.264 MP4 is safest).", 4: 'This video format or URL is not supported by your browser.' }; setVideoError(messages[err?.code] || 'This video could not be played. Check the video_url is a direct, public link to a video file.') }} /> : <><div className="player-brand">RWANDA<span>FLIX</span></div><div className="player-center"><button className="big-play" onClick={() => toast('Demo player ready — add a published video URL to stream this title')} aria-label={`Play ${player.title}`}><Play size={34} fill="currentColor"/></button><h3>{player.title}</h3><p>Streaming is ready for published Supabase video URLs.</p></div></>}</div>{videoError && <div style={{ padding: '14px 18px', background: '#2a1414', color: '#f5a3a3', fontSize: 13, borderTop: '1px solid #4a1f1f' }}>{videoError}</div>}{!player.videoUrl && <div className="video-controls"><span>▶</span><div className="progress"><i /></div><span>🔊</span><span>CC</span><span>⚙</span><span>⛶</span></div>}</div></div>}
+      {player && <div className="modal" role="dialog" aria-modal="true" aria-label={`${player.title} player`} onClick={e => e.target === e.currentTarget && handleClosePlayer()}><div className="video-box"><button className="close" onClick={handleClosePlayer} aria-label="Close player"><X/></button><div className="video-screen">{player.videoUrl ? <VideoPlayer src={player.videoUrl} poster={player.image} onLoadedMetadata={handleLoadedMetadata} onTimeUpdate={handleTimeUpdate} onPauseSave={() => savePlayback(player, playerProgressRef.current, false)} onEnded={handleVideoEnded} onError={(e) => { const err = e.currentTarget.error; const messages = { 1: 'Playback was aborted.', 2: 'Network error — the video could not be fetched. Check the URL is correct and publicly reachable.', 3: "The video file couldn't be decoded — check the format is a browser-supported codec (H.264 MP4 is safest).", 4: 'This video format or URL is not supported by your browser.' }; setVideoError(messages[err?.code] || 'This video could not be played. Check the video_url is a direct, public link to a video file.') }} /> : <><div className="player-brand">RWANDA<span>FLIX</span></div><div className="player-center"><button className="big-play" onClick={() => toast('Demo player ready — add a published video URL to stream this title')} aria-label={`Play ${player.title}`}><Play size={34} fill="currentColor"/></button><h3>{player.title}</h3><p>Streaming is ready for published Supabase video URLs.</p></div></>}</div>{videoError && <div style={{ padding: '14px 18px', background: '#2a1414', color: '#f5a3a3', fontSize: 13, borderTop: '1px solid #4a1f1f' }}>{videoError}</div>}{!player.videoUrl && <div className="video-controls"><span>▶</span><div className="progress"><i /></div><span>🔊</span><span>CC</span><span>⚙</span><span>⛶</span></div>}</div></div>}
 
       {login && <div className="modal" role="dialog" aria-modal="true" aria-label={authMode === 'signin' ? 'Sign in' : 'Create account'} onClick={e => e.target === e.currentTarget && setLogin(false)}><form className="auth-box" onSubmit={handleAuth}><button type="button" className="close" onClick={() => setLogin(false)} aria-label="Close authentication"><X/></button><div className="auth-logo">RWANDA<span>FLIX</span></div><h2>{authMode === 'signin' ? 'Welcome back' : 'Join RwandaFlix'}</h2><p>{authMode === 'signin' ? 'Sign in to continue watching RwandaFlix.' : 'Create your RwandaFlix account and sync your library.'}</p><input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required/><input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Password" type="password" autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required/><Button className="primary full" type="submit" disabled={authBusy}>{authBusy ? 'Connecting…' : authMode === 'signin' ? 'Sign In' : 'Create Account'}</Button><div className="or"><span>or</span></div><Button type="button" className="secondary full" onClick={() => setAuthMode(mode => mode === 'signin' ? 'signup' : 'signin')}>{authMode === 'signin' ? 'Create an account' : 'Back to sign in'}</Button><small>Secure authentication is handled by Supabase. Your session stays on this device until you sign out.</small></form></div>}
 
