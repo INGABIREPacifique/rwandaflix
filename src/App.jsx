@@ -541,11 +541,12 @@ function App() {
           <div className="notification-wrap">
             <button className="icon-btn" onClick={() => openAccount('notifications')} aria-label="Notifications"><Bell size={18}/><i /></button>
           </div>
+          {!user && <Button className="secondary" onClick={() => { setAuthMode('signin'); setLogin(true) }} style={{ marginRight: 4 }}>Sign In</Button>}
           <div className="profile">
             <button className="profile-btn" onClick={() => setProfileOpen(v => !v)} aria-label="Open profile" aria-expanded={profileOpen}>{user ? (user.email?.[0] || 'P').toUpperCase() : 'P'}</button>
             {profileOpen && <div className="profile-menu">
-              <div className="profile-heading"><div className="avatar">{user ? (user.email?.[0] || 'P').toUpperCase() : 'P'}</div><div><strong>{user ? (user.email?.split('@')[0] || 'RwandaFlix Member') : 'Pacifique'}</strong><small>{user ? 'RwandaFlix Member' : 'RwandaFlix Guest'}</small></div></div>
-              {user ? <button onClick={handleSignOut}><User size={16}/> Sign Out</button> : <button onClick={() => { setAuthMode('signin'); setLogin(true); setProfileOpen(false) }}><User size={16}/> Sign In</button>}
+              <div className="profile-heading"><div className="avatar">{user ? (user.email?.[0] || 'P').toUpperCase() : 'P'}</div><div><strong>{user ? (user.email?.split('@')[0] || 'RwandaFlix Member') : 'RwandaFlix Guest'}</strong><small>{user ? 'RwandaFlix Member' : 'Not signed in'}</small></div></div>
+              {user ? <button onClick={handleSignOut}><User size={16}/> Sign Out</button> : <><button onClick={() => { setAuthMode('signin'); setLogin(true); setProfileOpen(false) }}><User size={16}/> Sign In</button><button onClick={() => { setAuthMode('signup'); setLogin(true); setProfileOpen(false) }}><Plus size={16}/> Create Account</button></>}
               <button onClick={() => openAccount('creator')}><BarChart3 size={16}/> Creator Studio</button>
               <button onClick={() => openAccount('profile')}><Settings size={16}/> Settings</button>
             </div>}
