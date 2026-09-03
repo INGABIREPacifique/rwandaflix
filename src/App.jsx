@@ -165,9 +165,23 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
 }
 
 function MovieCard({ movie, onInfo, onPlay, onToggleList, inList }) {
+  const [previewing, setPreviewing] = useState(false)
+  const hoverTimerRef = useRef(null)
+
+  const startHover = () => {
+    if (!movie.trailerUrl) return
+    hoverTimerRef.current = setTimeout(() => setPreviewing(true), 500)
+  }
+  const endHover = () => {
+    clearTimeout(hoverTimerRef.current)
+    setPreviewing(false)
+  }
+
   return (
-    <article className="movie-card" onClick={() => onInfo(movie)}>
-      <img src={movie.image} alt={movie.title} loading="lazy" />
+    <article className="movie-card" onClick={() => onInfo(movie)} onMouseEnter={startHover} onMouseLeave={endHover}>
+      {previewing
+        ? <video src={movie.trailerUrl} autoPlay muted loop playsInline poster={movie.image} />
+        : <img src={movie.image} alt={movie.title} loading="lazy" />}
       <div className="movie-overlay">
         <div className="rating"><Star size={12} fill="currentColor" /> {movie.ratingAverage ? movie.ratingAverage.toFixed(1) : 'New'}</div>
         <strong>{movie.title}</strong>
@@ -316,7 +330,15 @@ function App() {
     return summary ? { ...movie, ratingAverage: summary.average, ratingCount: summary.count } : movie
   }), [baseLibraryMovies, ratingsSummary])
 
-  const featured = libraryMovies[0] || movies[0]
+  const heroSlides = useMemo(() => libraryMovies.slice(0, 5), [libraryMovies])
+  const [heroIndex, setHeroIndex] = useState(0)
+  const featured = heroSlides[heroIndex % (heroSlides.length || 1)] || movies[0]
+
+  useEffect(() => {
+    if (heroSlides.length < 2) return undefined
+    const id = setInterval(() => setHeroIndex(i => (i + 1) % heroSlides.length), 7000)
+    return () => clearInterval(id)
+  }, [heroSlides.length])
 
   useEffect(() => {
     if (backendError) toast(backendError)
@@ -635,13 +657,18 @@ function App() {
       {activePage === 'home' && (
         <>
           <header className="hero" id="home">
+            {featured.trailerUrl
+              ? <video className="hero-backdrop" src={featured.trailerUrl} autoPlay muted loop playsInline poster={featured.image} key={featured.id} />
+              : <img className="hero-backdrop" src={featured.image || movies[0].image} alt="" key={featured.id} />}
+            <div className="hero-scrim" />
             <div className="hero-content">
               <div className="eyebrow">🇷🇼 RwandaFlix Original · Featured</div>
               <h1>Stories from <span>Rwanda.</span></h1>
-              <div className="hero-meta"><span>{featured.year}</span><span className="age">16+</span><span>{featured.duration}</span><span>{featured.genre}</span><span className="match">98% Match</span></div>
+              <div className="hero-meta"><span>{featured.year}</span><span className="age">16+</span><span>{featured.duration}</span><span>{featured.genre}</span>{featured.ratingAverage ? <span className="match">{featured.ratingAverage.toFixed(1)}★ ({featured.ratingCount} rating{featured.ratingCount === 1 ? '' : 's'})</span> : null}</div>
               <p>{featured.description || 'Discover powerful stories, talented filmmakers and unforgettable characters from Rwanda — all in one premium streaming experience. From Kigali to the world.'}</p>
               <div className="hero-actions"><Button className="primary" onClick={() => openPlayer(featured)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => setSelected(featured)}><Info size={18}/> More Info</Button></div>
             </div>
+            {heroSlides.length > 1 && <div className="hero-dots">{heroSlides.map((s, i) => <button key={s.id} className={i === heroIndex ? 'active' : ''} onClick={() => setHeroIndex(i)} aria-label={`Show ${s.title}`} />)}</div>}
             <div className="hero-scroll">Scroll to explore <ChevronRight size={14}/></div>
           </header>
 
