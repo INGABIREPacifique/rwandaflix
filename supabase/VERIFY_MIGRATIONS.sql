@@ -46,3 +46,24 @@ select 'episodes', count(*), count(video_url) from public.episodes;
 -- If rows_with_video_url is 0 or low, that's exactly why Play buttons show
 -- the demo screen instead of a real video — there's nothing to play yet,
 -- independent of any app code.
+
+-- 6. Watchlist/watch_history RLS policies — checking for the same class of
+-- bug already found and fixed on `ratings` (an insert policy present but
+-- select policy missing/too narrow, so writes succeed but reads come back
+-- empty after refresh).
+select tablename, policyname, cmd, roles
+from pg_policies
+where schemaname = 'public' and tablename in ('watchlist', 'watch_history')
+order by tablename, cmd;
+-- Expect an INSERT (or ALL) AND a SELECT policy for each table, both
+-- referencing auth.uid() = user_id, with roles including authenticated.
+-- If SELECT is missing where INSERT exists, that is exactly
+-- "I added it but it's gone after refresh."
+
+-- 7. Is RLS even enabled on these tables?
+select relname, relrowsecurity
+from pg_class
+where relname in ('watchlist', 'watch_history', 'ratings')
+  and relnamespace = 'public'::regnamespace;
+-- relrowsecurity should be true (t) for all three.
+

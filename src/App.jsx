@@ -458,7 +458,7 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const genres = ['All', ...categories.map(c => c.name), 'Adventure', 'History', 'Romance']
+  const genres = ['All', ...categories.map(c => c.name)]
   const myListMovies = libraryMovies.filter(movie => list.has(movie.id))
   const historyItems = history
     .map(row => {
