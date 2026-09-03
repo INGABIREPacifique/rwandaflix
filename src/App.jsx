@@ -164,6 +164,26 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
   )
 }
 
+function LandingGate({ onGetStarted, onSignIn }) {
+  const [email, setEmail] = useState('')
+  return (
+    <div className="landing-gate">
+      <div className="landing-backdrop" />
+      <div className="landing-scrim" />
+      <div className="landing-content">
+        <h1>Unlimited Rwandan Stories.<br/>Anywhere.</h1>
+        <p className="landing-lede">Watch on any device. Cancel anytime.</p>
+        <p className="landing-sub">Ready to watch? Create an account to get started.</p>
+        <form className="landing-email-row" onSubmit={(e) => { e.preventDefault(); onGetStarted(email) }}>
+          <input type="email" required placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email address" />
+          <Button className="primary" type="submit">Get Started <ChevronRight size={16}/></Button>
+        </form>
+        <button className="landing-signin-link" onClick={onSignIn}>Already have an account? <strong>Sign In</strong></button>
+      </div>
+    </div>
+  )
+}
+
 function MovieCard({ movie, onInfo, onPlay, onToggleList, inList }) {
   const [previewing, setPreviewing] = useState(false)
   const hoverTimerRef = useRef(null)
@@ -654,7 +674,14 @@ function App() {
         </div>
       </nav>
 
-      {activePage === 'home' && (
+      {activePage === 'home' && !user && (
+        <LandingGate
+          onGetStarted={(email) => { setAuthEmail(email); setAuthMode('signup'); setLogin(true) }}
+          onSignIn={() => { setAuthMode('signin'); setLogin(true) }}
+        />
+      )}
+
+      {activePage === 'home' && user && (
         <>
           <header className="hero" id="home">
             {featured.trailerUrl
