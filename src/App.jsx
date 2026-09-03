@@ -106,7 +106,7 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
   const togglePlay = () => {
     const v = videoRef.current
     if (!v) return
-    if (v.paused) v.play(); else v.pause()
+    if (v.paused) v.play()?.catch(() => {}); else v.pause()
   }
 
   const toggleMute = () => {
@@ -164,11 +164,17 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
   )
 }
 
-function LandingGate({ onGetStarted, onSignIn }) {
+function LandingGate({ onGetStarted, onSignIn, posters }) {
   const [email, setEmail] = useState('')
+  const tiles = useMemo(() => {
+    const list = posters.length ? posters : movies
+    return Array.from({ length: 24 }, (_, i) => list[i % list.length])
+  }, [posters])
   return (
     <div className="landing-gate">
-      <div className="landing-backdrop" />
+      <div className="landing-poster-grid">
+        {tiles.map((m, i) => <img key={i} src={m.image} alt="" loading="lazy" />)}
+      </div>
       <div className="landing-scrim" />
       <div className="landing-content">
         <h1>Unlimited Rwandan Stories.<br/>Anywhere.</h1>
@@ -692,6 +698,7 @@ function App() {
 
       {activePage === 'home' && !user && (
         <LandingGate
+          posters={libraryMovies}
           onGetStarted={(email) => { setAuthEmail(email); setAuthMode('signup'); setLogin(true) }}
           onSignIn={() => { setAuthMode('signin'); setLogin(true) }}
         />
