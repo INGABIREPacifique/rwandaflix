@@ -283,6 +283,13 @@ function App() {
     || (location.pathname === '/downloads' ? 'downloads' : null)
     || (INFO_PAGES[infoSlug] ? 'info' : null)
     || 'home'
+
+  useEffect(() => {
+    const protectedPages = ['browse', 'series', 'my-list', 'downloads']
+    if (!user && protectedPages.includes(activePage)) {
+      navigate('/', { replace: true })
+    }
+  }, [user, activePage, navigate])
   const [list, setList] = useState(new Set([4, 11]))
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -539,6 +546,14 @@ function App() {
     }
   }
 
+  const requireAuthOrPrompt = () => {
+    if (user) return true
+    setAuthMode('signin')
+    setLogin(true)
+    toast('Sign in to continue')
+    return false
+  }
+
   const openAccount = (tab = 'profile') => {
     setProfileOpen(false)
     if (!user) {
@@ -573,6 +588,7 @@ function App() {
 
   const pageToPath = { home: '/', browse: '/browse', 'my-list': '/my-list' }
   const goTo = (page) => {
+    if (page !== 'home' && !requireAuthOrPrompt()) return
     navigate(pageToPath[page] || '/')
     setMobileOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -651,7 +667,7 @@ function App() {
         <div className={`nav-links ${mobileOpen ? 'open' : ''}`}>
           <button className={activePage === 'home' ? 'active' : ''} onClick={() => goTo('home')}>Home</button>
           <button className={activePage === 'browse' ? 'active' : ''} onClick={() => goTo('browse')}>Movies</button>
-          <button className={activePage === 'series' ? 'active' : ''} onClick={() => navigate('/series')}>Series</button>
+          <button className={activePage === 'series' ? 'active' : ''} onClick={() => requireAuthOrPrompt() && navigate('/series')}>Series</button>
           <button onClick={() => { setActiveGenre('Drama'); goTo('browse') }}>Genres</button>
           <button className={activePage === 'my-list' ? 'active' : ''} onClick={() => goTo('my-list')}>My List <span className="nav-count">{list.size}</span></button>
         </div>
@@ -702,7 +718,7 @@ function App() {
           <div className="quick-picks">
             <button onClick={() => goTo('browse')}><Film size={17}/><span><strong>Browse</strong><small>Explore the library</small></span></button>
             <button onClick={() => goTo('my-list')}><Heart size={17}/><span><strong>My List</strong><small>{list.size} saved titles</small></span></button>
-            <button onClick={() => navigate('/downloads')}><Download size={17}/><span><strong>Offline</strong><small>{downloads.length ? `${downloads.length} downloaded` : 'Watch on the go'}</small></span></button>
+            <button onClick={() => requireAuthOrPrompt() && navigate('/downloads')}><Download size={17}/><span><strong>Offline</strong><small>{downloads.length ? `${downloads.length} downloaded` : 'Watch on the go'}</small></span></button>
             <button onClick={() => openAccount('creator')}><BarChart3 size={17}/><span><strong>For Creators</strong><small>Publish your stories</small></span></button>
           </div>
 
@@ -733,7 +749,7 @@ function App() {
       {activePage === 'series' && !activeSeriesId && (
         <main className="browse-page">
           <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Series</h1><p>Rwandan stories told across episodes and seasons.</p></div><div className="library-count">{series.length}<span> shows</span></div></div>
-          {backendLoading && !series.length ? <div className="loading-state">Loading series…</div> : series.length ? <div className="browse-grid">{series.map(show => <SeriesCard key={show.id} show={show} onClick={s => navigate(`/series/${s.id}`)} />)}</div> : <div className="empty-state"><Tv size={40}/><h2>No series published yet</h2><p>Check back soon — RwandaFlix Originals series are on the way.</p><Button className="secondary" onClick={() => goTo('browse')}>Browse movies instead</Button></div>}
+          {backendLoading && !series.length ? <div className="loading-state">Loading series…</div> : series.length ? <div className="browse-grid">{series.map(show => <SeriesCard key={show.id} show={show} onClick={s => requireAuthOrPrompt() && navigate(`/series/${s.id}`)} />)}</div> : <div className="empty-state"><Tv size={40}/><h2>No series published yet</h2><p>Check back soon — RwandaFlix Originals series are on the way.</p><Button className="secondary" onClick={() => goTo('browse')}>Browse movies instead</Button></div>}
         </main>
       )}
 
@@ -794,7 +810,7 @@ function App() {
         </main>
       )}
 
-      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><a href="https://www.facebook.com/ingpacific/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on Facebook">f</a><a href="https://www.instagram.com/paccy0/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on Instagram">◎</a><a href="https://www.linkedin.com/in/ingabire-pacifique/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on LinkedIn">in</a></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => navigate('/downloads')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => navigate('/partner')}>Partner With Us</button><button onClick={() => navigate('/guidelines')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => navigate('/help')}>Help Center</button><button onClick={() => navigate('/terms')}>Terms</button><button onClick={() => navigate('/privacy')}>Privacy</button><button onClick={() => navigate('/contact')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
+      <footer><div className="footer-grid"><div><button className="logo" onClick={() => goTo('home')}>RWANDA<span>FLIX</span></button><p>A premium streaming platform concept dedicated to Rwandan cinema, filmmakers and audiences around the world.</p><div className="footer-social"><a href="https://www.facebook.com/ingpacific/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on Facebook">f</a><a href="https://www.instagram.com/paccy0/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on Instagram">◎</a><a href="https://www.linkedin.com/in/ingabire-pacifique/" target="_blank" rel="noopener noreferrer" aria-label="RwandaFlix on LinkedIn">in</a></div></div><div><h3>Platform</h3><button onClick={() => goTo('browse')}>Movies</button><button onClick={() => requireAuthOrPrompt() && navigate('/series')}>Series</button><button onClick={() => goTo('my-list')}>My List</button><button onClick={() => { goTo('home'); setTimeout(() => document.getElementById('categories')?.scrollIntoView(), 100) }}>Genres</button><button onClick={() => requireAuthOrPrompt() && navigate('/downloads')}>Downloads</button></div><div><h3>Creators</h3><button onClick={() => openAccount('creator')}>Creator Studio</button><button onClick={() => openAccount('creator')}>Submit a Film</button><button onClick={() => navigate('/partner')}>Partner With Us</button><button onClick={() => navigate('/guidelines')}>Guidelines</button></div><div><h3>Support</h3><button onClick={() => navigate('/help')}>Help Center</button><button onClick={() => navigate('/terms')}>Terms</button><button onClick={() => navigate('/privacy')}>Privacy</button><button onClick={() => navigate('/contact')}>Contact</button></div></div><div className="copyright">© 2026 RwandaFlix Concept · Built for Rwandan Cinema 🇷🇼 <span>{user ? 'Supabase account connected' : 'Frontend fallback catalog active'}</span></div></footer>
 
       {selected && <div className="modal" role="dialog" aria-modal="true" aria-label={`${selected.title} details`} onClick={e => e.target === e.currentTarget && closeDetail()}><div className="modal-box"><button className="close" onClick={closeDetail} aria-label="Close details"><X/></button><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><div className="eyebrow">RwandaFlix</div><h2>{selected.title}</h2><div className="hero-meta"><span>{selected.year}</span><span className="age">HD</span><span>{selected.genre}</span><span>{selected.duration}</span></div><p>{selected.description}</p><div className="detail-tags"><span>🇷🇼 Rwanda</span><span>{selected.ratingAverage ? `${selected.ratingAverage.toFixed(1)}★ (${selected.ratingCount} rating${selected.ratingCount === 1 ? '' : 's'})` : 'Not yet rated'}</span><span>Subtitles</span></div><div className="hero-actions"><Button className="primary" onClick={() => openPlayer(selected)}><Play size={18} fill="currentColor"/> Play</Button><Button className="secondary" onClick={() => toggleList(selected)}>{list.has(selected.id) ? <Check size={18}/> : <Plus size={18}/>} {list.has(selected.id) ? 'In My List' : 'My List'}</Button>{isDownloadSupported() && (isDownloaded(selected.id) ? <Button className="secondary" onClick={() => handleRemoveDownload(selected.id)}><Check size={18}/> Downloaded</Button> : <Button className="secondary" disabled={downloadProgress[selected.id] !== undefined} onClick={() => handleDownload(selected)}><Download size={18}/> {downloadProgress[selected.id] !== undefined ? (downloadProgress[selected.id] === null ? 'Downloading…' : `${downloadProgress[selected.id]}%`) : 'Download'}</Button>)}</div><div className="rate-row" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14 }}><span style={{ fontSize: 13, color: '#999', marginRight: 4 }}>{myRating ? 'Your rating:' : 'Rate this:'}</span>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => submitRating(n)} aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Star size={20} fill={myRating && n <= myRating ? 'currentColor' : 'none'} color={myRating && n <= myRating ? '#e50914' : '#666'} /></button>)}</div></div></div></div>}
 
