@@ -98,24 +98,10 @@ function formatTime(seconds) {
 
 function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave, onEnded, onError }) {
   const videoRef = useRef(null)
-  const hideTimerRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
   const [muted, setMuted] = useState(false)
-  const [showControls, setShowControls] = useState(true)
-
-  const scheduleHide = () => {
-    clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => {
-      if (videoRef.current && !videoRef.current.paused) setShowControls(false)
-    }, 3000)
-  }
-
-  const wake = () => {
-    setShowControls(true)
-    scheduleHide()
-  }
 
   const togglePlay = () => {
     const v = videoRef.current
@@ -145,10 +131,8 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
     v.currentTime = pct * duration
   }
 
-  useEffect(() => () => clearTimeout(hideTimerRef.current), [])
-
   return (
-    <div className="custom-player" onMouseMove={wake} onClick={wake}>
+    <div className="custom-player">
       <video
         ref={videoRef}
         className="rwanda-video"
@@ -157,14 +141,14 @@ function VideoPlayer({ src, poster, onLoadedMetadata, onTimeUpdate, onPauseSave,
         playsInline
         onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); onLoadedMetadata?.(e) }}
         onTimeUpdate={(e) => { setCurrent(e.currentTarget.currentTime); onTimeUpdate?.(e) }}
-        onPlay={() => { setPlaying(true); scheduleHide() }}
-        onPause={() => { setPlaying(false); setShowControls(true); clearTimeout(hideTimerRef.current); onPauseSave?.() }}
-        onEnded={() => { setPlaying(false); setShowControls(true); onEnded?.() }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => { setPlaying(false); onPauseSave?.() }}
+        onEnded={() => { setPlaying(false); onEnded?.() }}
         onError={onError}
         onClick={(e) => { e.stopPropagation(); togglePlay() }}
       />
       {!playing && <button className="big-play" onClick={togglePlay} aria-label="Play"><Play size={34} fill="currentColor" /></button>}
-      <div className={`custom-controls ${showControls ? 'visible' : ''}`}>
+      <div className="custom-controls">
         <div className="seek-bar" onClick={handleSeek}>
           <div className="seek-fill" style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }} />
         </div>
