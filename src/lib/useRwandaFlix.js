@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import {
   getSession,
   onAuthStateChange,
@@ -10,7 +10,7 @@ import {
 } from './platform'
 import { movies as fallbackMovies } from '../data/movies'
 
-export function useRwandaFlix() {
+export function useRwandaFlixInternal() {
   const [user, setUser] = useState(null)
   const [catalog, setCatalog] = useState(fallbackMovies)
   const [series, setSeries] = useState([])
@@ -102,4 +102,12 @@ export function useRwandaFlix() {
   }, [user, refreshAccount])
 
   return { user, catalog, series, watchlist, history, loading, error, refreshAccount, refreshHistory }
+}
+
+export const RwandaFlixContext = createContext(null)
+
+export function useRwandaFlix() {
+  const ctx = useContext(RwandaFlixContext)
+  if (!ctx) throw new Error('useRwandaFlix must be used within a RwandaFlixProvider')
+  return ctx
 }

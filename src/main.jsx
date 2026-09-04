@@ -6,14 +6,17 @@ import './App.css'
 import App from './App.jsx'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import RwandaFlixBackendBridge from './components/RwandaFlixBackendBridge.jsx'
+import RwandaFlixProvider from './components/RwandaFlixProvider.jsx'
 
 export function Root() {
   return (
     <AppErrorBoundary>
-      <RwandaFlixBackendBridge />
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <RwandaFlixProvider>
+        <RwandaFlixBackendBridge />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </RwandaFlixProvider>
     </AppErrorBoundary>
   )
 }
