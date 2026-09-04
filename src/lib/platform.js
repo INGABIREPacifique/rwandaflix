@@ -25,6 +25,22 @@ export async function getMySubscription(userId){const {data,error}=await require
 export async function getCreatorProfile(userId){const {data,error}=await requireClient().from('creator_profiles').select('*').eq('user_id',userId).maybeSingle();if(error)throw error;return data}
 export async function getCreatorSubmissions(creatorId){const {data,error}=await requireClient().from('film_submissions').select('*').eq('creator_id',creatorId).order('created_at',{ascending:false});if(error)throw error;return data??[]}
 export async function createFilmSubmission(creatorId,submission){const {data,error}=await requireClient().from('film_submissions').insert({creator_id:creatorId,...submission}).select().single();if(error)throw error;return data}
+// Uploads a creator's film file to their own private storage folder and
+// returns a signed URL for it. LIMITATION: this signed URL expires after
+// one year (Supabase's max signed-URL lifetime for reasonable use) — a full
+// production review workflow would instead store the storage path and
+// generate a fresh signed URL each time an admin/creator views it, but that
+// requires an admin review UI that doesn't exist yet. Documenting this
+// rather than hiding it.
+export async function uploadSubmissionFile(userId,file){
+  const client=requireClient()
+  const path=`${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`
+  const {error:uploadError}=await client.storage.from('creator-submissions').upload(path,file,{upsert:false})
+  if(uploadError)throw uploadError
+  const {data:signed,error:signError}=await client.storage.from('creator-submissions').createSignedUrl(path,60*60*24*365)
+  if(signError)throw signError
+  return signed.signedUrl
+}
 export async function updateCreatorProfile(userId,updates){const {data,error}=await requireClient().from('creator_profiles').upsert({user_id:userId,...updates},{onConflict:'user_id'}).select().single();if(error)throw error;return data}
 export async function getSeriesCatalog(){if(!supabase)return[];const {data,error}=await supabase.from('series').select('*').eq('is_published',true).order('is_featured',{ascending:false}).order('release_year',{ascending:false});if(error)throw error;return data??[]}
 export async function getEpisodes(seriesId){const {data,error}=await requireClient().from('episodes').select('*').eq('series_id',seriesId).order('season_number').order('episode_number');if(error)throw error;return data??[]}
