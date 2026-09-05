@@ -16,6 +16,15 @@ export async function upsertEpisodeProgress(userId,episodeDbId,progressSeconds,c
 export async function getEpisodeProgressMap(userId,seriesId){if(!supabase||!userId)return{};const {data,error}=await supabase.from('watch_history').select('episode_id,progress_seconds,completed,episodes!inner(series_id)').eq('user_id',userId).eq('episodes.series_id',seriesId);if(error)throw error;const map={};for(const row of data??[])map[row.episode_id]={progress:row.progress_seconds,completed:row.completed};return map}
 export async function getProfile(userId){const {data,error}=await requireClient().from('profiles').select('*').eq('id',userId).maybeSingle();if(error)throw error;return data}
 export async function updateProfile(userId,updates){const {data,error}=await requireClient().from('profiles').update(updates).eq('id',userId).select().single();if(error)throw error;return data}
+export async function uploadAvatar(userId,file){
+  const client=requireClient()
+  const path=`${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`
+  const {error:uploadError}=await client.storage.from('avatars').upload(path,file,{upsert:true})
+  if(uploadError)throw uploadError
+  const {data}=client.storage.from('avatars').getPublicUrl(path)
+  return data.publicUrl
+}
+export async function updatePassword(newPassword){const {error}=await requireClient().auth.updateUser({password:newPassword});if(error)throw error}
 export async function getNotifications(userId){const {data,error}=await requireClient().from('notifications').select('id,title,message,type,is_read,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(20);if(error)throw error;return data??[]}
 export async function getUnreadNotificationCount(userId){if(!supabase||!userId)return 0;const {count,error}=await supabase.from('notifications').select('*',{count:'exact',head:true}).eq('user_id',userId).eq('is_read',false);if(error)throw error;return count??0}
 export async function markNotificationRead(userId,id){const {error}=await requireClient().from('notifications').update({is_read:true}).eq('id',id).eq('user_id',userId);if(error)throw error}
