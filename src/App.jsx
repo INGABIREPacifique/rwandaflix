@@ -7,6 +7,7 @@ import {
 import { movies, categories } from './data/movies'
 import { useRwandaFlix } from './lib/useRwandaFlix'
 import AccountCenter from './components/AccountCenter.jsx'
+import AdminReview from './components/AdminReview.jsx'
 import {
   isDownloadSupported,
   listDownloads,
@@ -288,11 +289,12 @@ function App() {
   const activePage = pathToPage[location.pathname]
     || (location.pathname.startsWith('/series') ? 'series' : null)
     || (location.pathname === '/downloads' ? 'downloads' : null)
+    || (location.pathname === '/admin' ? 'admin' : null)
     || (INFO_PAGES[infoSlug] ? 'info' : null)
     || 'home'
 
   useEffect(() => {
-    const protectedPages = ['browse', 'series', 'my-list', 'downloads']
+    const protectedPages = ['browse', 'series', 'my-list', 'downloads', 'admin']
     if (!user && protectedPages.includes(activePage)) {
       navigate('/', { replace: true })
     }
@@ -701,6 +703,7 @@ function App() {
               {user ? <button onClick={handleSignOut}><User size={16}/> Sign Out</button> : <><button onClick={() => { setAuthMode('signin'); setLogin(true); setProfileOpen(false) }}><User size={16}/> Sign In</button><button onClick={() => { setAuthMode('signup'); setLogin(true); setProfileOpen(false) }}><Plus size={16}/> Create Account</button></>}
               <button onClick={() => openAccount('creator')}><BarChart3 size={16}/> Creator Studio</button>
               <button onClick={() => openAccount('profile')}><Settings size={16}/> Settings</button>
+              {user && <button onClick={() => { setProfileOpen(false); navigate('/admin') }}><Film size={16}/> Admin Review</button>}
             </div>}
           </div>
         </div>
@@ -817,6 +820,8 @@ function App() {
           )}
         </main>
       )}
+
+      {activePage === 'admin' && user && <AdminReview user={user} />}
 
       {activePage === 'info' && INFO_PAGES[infoSlug] && (
         <main className="browse-page">

@@ -27,6 +27,33 @@ export async function getMySubscription(userId){const {data,error}=await require
 export async function getCreatorProfile(userId){const {data,error}=await requireClient().from('creator_profiles').select('*').eq('user_id',userId).maybeSingle();if(error)throw error;return data}
 export async function getCreatorSubmissions(creatorId){const {data,error}=await requireClient().from('film_submissions').select('*').eq('creator_id',creatorId).order('created_at',{ascending:false});if(error)throw error;return data??[]}
 export async function createFilmSubmission(creatorId,submission){const {data,error}=await requireClient().from('film_submissions').insert({creator_id:creatorId,...submission}).select().single();if(error)throw error;return data}
+export async function isAdmin(userId){if(!supabase||!userId)return false;const {data,error}=await supabase.from('profiles').select('role').eq('id',userId).maybeSingle();if(error)throw error;return data?.role==='admin'}
+export async function getAllSubmissionsForReview(){const {data,error}=await requireClient().from('film_submissions').select('*,creator_profiles(id,display_name,user_id)').order('created_at',{ascending:false});if(error)throw error;return data??[]}
+export async function approveSubmission(submission){
+  const client=requireClient()
+  const {data:movie,error:movieError}=await client.from('movies').insert({
+    title:submission.title,
+    description:submission.description,
+    genre:submission.genre,
+    video_url:submission.video_url,
+    is_published:true,
+  }).select().single()
+  if(movieError)throw movieError
+  const {error:updateError}=await client.from('film_submissions').update({status:'approved',reviewed_at:new Date().toISOString()}).eq('id',submission.id)
+  if(updateError)throw updateError
+  if(submission.creator_profiles?.user_id){
+    await createNotification(submission.creator_profiles.user_id,{title:'Film approved!',message:`"${submission.title}" is now live on RwandaFlix.`,type:'success'}).catch(()=>{})
+  }
+  return movie
+}
+export async function rejectSubmission(submission,reason){
+  const client=requireClient()
+  const {error}=await client.from('film_submissions').update({status:'rejected',reviewer_notes:reason||null,reviewed_at:new Date().toISOString()}).eq('id',submission.id)
+  if(error)throw error
+  if(submission.creator_profiles?.user_id){
+    await createNotification(submission.creator_profiles.user_id,{title:'Submission not approved',message:reason?`"${submission.title}" was not approved: ${reason}`:`"${submission.title}" was not approved this time.`,type:'info'}).catch(()=>{})
+  }
+}
 // Uploads a creator's film file to their own private storage folder and
 // returns a signed URL for it. LIMITATION: this signed URL expires after
 // one year (Supabase's max signed-URL lifetime for reasonable use) — a full
