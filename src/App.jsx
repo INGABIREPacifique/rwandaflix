@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart3, Bell, Check, ChevronRight, Clock3, Download,
@@ -28,6 +28,7 @@ import {
   getMovieRatings,
   upsertMovieRating,
   getRatingsSummary,
+  getUnreadNotificationCount,
 } from './lib/platform'
 import './App.css'
 
@@ -306,6 +307,15 @@ function App() {
   const [ratingsSummary, setRatingsSummary] = useState({})
   const [myRating, setMyRating] = useState(null)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const refreshUnreadCount = useCallback(() => {
+    if (!user) { setUnreadCount(0); return }
+    getUnreadNotificationCount(user.id).then(setUnreadCount).catch(() => {})
+  }, [user])
+
+  useEffect(() => { refreshUnreadCount() }, [refreshUnreadCount])
+  useEffect(() => { if (!accountOpen) refreshUnreadCount() }, [accountOpen, refreshUnreadCount])
   const [accountTab, setAccountTab] = useState('profile')
   const [seriesEpisodes, setSeriesEpisodes] = useState([])
   const [episodeProgress, setEpisodeProgress] = useState({})
@@ -681,7 +691,7 @@ function App() {
         <div className="nav-right">
           <label className="search-box"><Search size={16}/><input value={query} onChange={e => { setQuery(e.target.value); if (e.target.value && activePage !== 'browse') navigate('/browse') }} placeholder="Search RwandaFlix" aria-label="Search RwandaFlix" /></label>
           <div className="notification-wrap">
-            <button className="icon-btn" onClick={() => openAccount('notifications')} aria-label="Notifications"><Bell size={18}/><i /></button>
+            <button className="icon-btn" onClick={() => openAccount('notifications')} aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}><Bell size={18}/>{unreadCount > 0 && <i>{unreadCount > 9 ? '9+' : unreadCount}</i>}</button>
           </div>
           {!user && <Button className="secondary" onClick={() => { setAuthMode('signin'); setLogin(true) }} style={{ marginRight: 4 }}>Sign In</Button>}
           <div className="profile">

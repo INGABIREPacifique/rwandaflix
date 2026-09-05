@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bell, User, CreditCard, Film, X } from 'lucide-react'
-import { getProfile, updateProfile, getNotifications, markNotificationRead, getPlans, getMySubscription, getCreatorProfile, updateCreatorProfile, getCreatorSubmissions, createCheckoutSession, subscribeToFreePlan, createFilmSubmission, uploadSubmissionFile } from '../lib/platform'
+import { getProfile, updateProfile, getNotifications, markNotificationRead, getPlans, getMySubscription, getCreatorProfile, updateCreatorProfile, getCreatorSubmissions, createCheckoutSession, subscribeToFreePlan, createFilmSubmission, uploadSubmissionFile, createNotification } from '../lib/platform'
 
 export default function AccountCenter({ user, onClose, initialTab = 'profile' }) {
   const [tab,setTab]=useState(initialTab),[profile,setProfile]=useState(null),[notifications,setNotifications]=useState([]),[plans,setPlans]=useState([]),[subscription,setSubscription]=useState(null),[creator,setCreator]=useState(null),[submissions,setSubmissions]=useState([]),[busy,setBusy]=useState(true),[error,setError]=useState('')
@@ -29,6 +29,7 @@ export default function AccountCenter({ user, onClose, initialTab = 'profile' })
         status:'pending',
       })
       setSubmissions(subs=>[created,...subs])
+      createNotification(user.id,{title:'Submission received',message:`"${created.title}" was uploaded and is pending review.`,type:'success'}).then(n=>setNotifications(ns=>[n,...ns])).catch(()=>{})
       setShowSubmitForm(false)
       e.currentTarget.reset()
     }catch(err){setSubmitError(err.message)}
