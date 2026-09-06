@@ -64,7 +64,7 @@ const INFO_PAGES = {
       'This is a starter Privacy Policy template for RwandaFlix while the product is in development. It is not a substitute for legal advice \u2014 have it reviewed before real user data is collected at scale.',
       'RwandaFlix stores your account email, watch history, watchlist, and ratings in order to provide the service. This data is protected by database-level access rules (Row Level Security) so that only you can read your own watch history, watchlist, notifications, and subscription details.',
       'We do not sell personal data to third parties. If analytics or advertising partners are added in the future, this policy will be updated first.',
-      'You can request deletion of your account and associated data by contacting support.',
+      'You can permanently delete your account and all associated data yourself at any time from Account Settings \u2192 Danger zone, or by contacting support.',
     ],
   },
   contact: {
