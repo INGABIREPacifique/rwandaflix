@@ -300,7 +300,7 @@ function App() {
       navigate('/', { replace: true })
     }
   }, [user, activePage, navigate])
-  const [list, setList] = useState(new Set([4, 11]))
+  const [list, setList] = useState(new Set())
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
   const [authMode, setAuthMode] = useState('signin')
@@ -453,7 +453,7 @@ function App() {
 
   useEffect(() => {
     if (!user) {
-      setList(new Set([4, 11]))
+      setList(new Set())
       return
     }
     setList(new Set(watchlist.map(item => item.movie_id).filter(Boolean)))
