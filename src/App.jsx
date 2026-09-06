@@ -30,6 +30,7 @@ import {
   upsertMovieRating,
   getRatingsSummary,
   getUnreadNotificationCount,
+  trackPlaybackEvent,
 } from './lib/platform'
 import './App.css'
 
@@ -438,6 +439,7 @@ function App() {
   const openEpisodePlayer = (episode, show) => {
     setSelected(null)
     setVideoError('')
+    if (episode.video_url) trackPlaybackEvent(null, episode.id, user?.id)
     setPlayer({
       id: `episode-${episode.id}`,
       dbId: episode.id,
@@ -461,6 +463,7 @@ function App() {
     setSelected(null)
     setVideoError('')
     setSearchParams(params => { params.delete('movie'); return params }, { replace: true })
+    if (movie.dbId && movie.videoUrl) trackPlaybackEvent(movie.dbId, null, user?.id)
     if (isDownloaded(movie.id)) {
       const offlineUrl = await getOfflinePlaybackUrl(movie.id)
       if (offlineUrl) {

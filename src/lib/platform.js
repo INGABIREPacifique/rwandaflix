@@ -13,6 +13,25 @@ export async function removeFromWatchlist(userId,movieDbId){const {error}=await 
 export async function getWatchHistory(userId){const {data,error}=await requireClient().from('watch_history').select('id,movie_id,episode_id,progress_seconds,completed,last_watched_at,movies(id,title,poster_url,backdrop_url,release_year,duration_minutes,genre,description,video_url),episodes(id,title,thumbnail_url,duration_minutes,video_url,episode_number,season_number,series_id,series(id,title,poster_url))').eq('user_id',userId).order('last_watched_at',{ascending:false}).limit(20);if(error)throw error;return data??[]}
 export async function upsertWatchProgress(userId,movieDbId,progressSeconds,completed=false){const {data,error}=await requireClient().from('watch_history').upsert({user_id:userId,movie_id:movieDbId,progress_seconds:Math.max(0,Math.floor(progressSeconds)),completed,last_watched_at:new Date().toISOString()},{onConflict:'user_id,movie_id'}).select().single();if(error)throw error;return data}
 export async function upsertEpisodeProgress(userId,episodeDbId,progressSeconds,completed=false){const {data,error}=await requireClient().from('watch_history').upsert({user_id:userId,episode_id:episodeDbId,progress_seconds:Math.max(0,Math.floor(progressSeconds)),completed,last_watched_at:new Date().toISOString()},{onConflict:'user_id,episode_id'}).select().single();if(error)throw error;return data}
+export function trackPlaybackEvent(movieId,episodeId,userId){
+  if(!supabase)return
+  const row=episodeId?{episode_id:episodeId,user_id:userId||null}:{movie_id:movieId,user_id:userId||null}
+  supabase.from('playback_events').insert(row).then(()=>{},()=>{})
+}
+export async function getCreatorAnalytics(creatorId){
+  if(!supabase)return {totalViews:0,movieViews:[]}
+  const {data:creatorMovies,error:moviesError}=await supabase.from('movies').select('id,title').eq('creator_id',creatorId)
+  if(moviesError)throw moviesError
+  if(!creatorMovies.length)return {totalViews:0,movieViews:[]}
+  const ids=creatorMovies.map(m=>m.id)
+  const {data:events,error:eventsError}=await supabase.from('playback_events').select('movie_id').in('movie_id',ids)
+  if(eventsError)throw eventsError
+  const counts={}
+  for(const e of events??[])counts[e.movie_id]=(counts[e.movie_id]||0)+1
+  const movieViews=creatorMovies.map(m=>({id:m.id,title:m.title,views:counts[m.id]||0})).sort((a,b)=>b.views-a.views)
+  const totalViews=movieViews.reduce((sum,m)=>sum+m.views,0)
+  return {totalViews,movieViews}
+}
 export async function getEpisodeProgressMap(userId,seriesId){if(!supabase||!userId)return{};const {data,error}=await supabase.from('watch_history').select('episode_id,progress_seconds,completed,episodes!inner(series_id)').eq('user_id',userId).eq('episodes.series_id',seriesId);if(error)throw error;const map={};for(const row of data??[])map[row.episode_id]={progress:row.progress_seconds,completed:row.completed};return map}
 export async function getProfile(userId){const {data,error}=await requireClient().from('profiles').select('*').eq('id',userId).maybeSingle();if(error)throw error;return data}
 export async function updateProfile(userId,updates){const {data,error}=await requireClient().from('profiles').update(updates).eq('id',userId).select().single();if(error)throw error;return data}
@@ -46,6 +65,7 @@ export async function approveSubmission(submission){
     genre:submission.genre,
     video_url:submission.video_url,
     is_published:true,
+    creator_id:submission.creator_id,
   }).select().single()
   if(movieError)throw movieError
   const {error:updateError}=await client.from('film_submissions').update({status:'approved',reviewed_at:new Date().toISOString()}).eq('id',submission.id)
