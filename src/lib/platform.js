@@ -44,6 +44,7 @@ export async function uploadAvatar(userId,file){
   return data.publicUrl
 }
 export async function updatePassword(newPassword){const {error}=await requireClient().auth.updateUser({password:newPassword});if(error)throw error}
+export async function resetPasswordForEmail(email){const {error}=await requireClient().auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});if(error)throw error}
 export async function getNotifications(userId){const {data,error}=await requireClient().from('notifications').select('id,title,message,type,is_read,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(20);if(error)throw error;return data??[]}
 export async function getUnreadNotificationCount(userId){if(!supabase||!userId)return 0;const {count,error}=await supabase.from('notifications').select('*',{count:'exact',head:true}).eq('user_id',userId).eq('is_read',false);if(error)throw error;return count??0}
 export async function markNotificationRead(userId,id){const {error}=await requireClient().from('notifications').update({is_read:true}).eq('id',id).eq('user_id',userId);if(error)throw error}

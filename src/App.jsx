@@ -31,6 +31,9 @@ import {
   getRatingsSummary,
   getUnreadNotificationCount,
   trackPlaybackEvent,
+  onAuthStateChange,
+  resetPasswordForEmail,
+  updatePassword,
 } from './lib/platform'
 import './App.css'
 
@@ -39,7 +42,7 @@ const INFO_PAGES = {
     title: 'Help Center',
     body: [
       'RwandaFlix is in active development. If something looks broken or a video won\u2019t play, it\u2019s most likely a title without a published video file yet, not an error on your end.',
-      'Account issues: use the Sign In / Sign Up option in the top-right profile menu. If you\u2019ve forgotten your password, contact support below for now \u2014 self-serve password reset is on the roadmap.',
+      'Account issues: use the Sign In / Sign Up option in the top-right profile menu. Forgotten your password? Click \u201cForgot password?\u201d on the sign-in form to get a reset link by email.',
       'Playback issues: try refreshing the page. If a specific title never loads, it may not have a video URL published yet.',
       'For anything else, reach us through the Contact page.',
     ],
@@ -304,6 +307,23 @@ function App() {
   const [notice, setNotice] = useState('')
   const [scrolled, setScrolled] = useState(false)
   const [authMode, setAuthMode] = useState('signin')
+  const [showResetRequest, setShowResetRequest] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
+  const [showNewPasswordForm, setShowNewPasswordForm] = useState(false)
+  const [newPasswordBusy, setNewPasswordBusy] = useState(false)
+  const [newPasswordMessage, setNewPasswordMessage] = useState('')
+
+  useEffect(() => {
+    const { data } = onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setLogin(false)
+        setShowResetRequest(false)
+        setShowNewPasswordForm(true)
+      }
+    })
+    return () => data?.subscription?.unsubscribe()
+  }, [])
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
@@ -619,14 +639,41 @@ function App() {
   const myListMovies = libraryMovies.filter(movie => list.has(movie.id))
   const historyItems = history
     .map(row => {
-      const movie = libraryMovies.find(item => item.dbId === row.movie_id || item.id === row.movie_id)
-      if (!movie) return null
-      const durationSeconds = (row.movies?.duration_minutes || 0) * 60
-      const progress = durationSeconds ? Math.min(100, Math.round((row.progress_seconds / durationSeconds) * 100)) : 0
-      return { ...movie, progress }
+      if (row.movie_id) {
+        const movie = libraryMovies.find(item => item.dbId === row.movie_id || item.id === row.movie_id)
+        if (!movie) return null
+        const durationSeconds = (row.movies?.duration_minutes || 0) * 60
+        const progress = durationSeconds ? Math.min(100, Math.round((row.progress_seconds / durationSeconds) * 100)) : 0
+        return { ...movie, progress, kind: 'movie' }
+      }
+      if (row.episode_id && row.episodes) {
+        const ep = row.episodes
+        const durationSeconds = (ep.duration_minutes || 0) * 60
+        const progress = durationSeconds ? Math.min(100, Math.round((row.progress_seconds / durationSeconds) * 100)) : 0
+        return {
+          id: `episode-${ep.id}`,
+          dbId: ep.id,
+          kind: 'episode',
+          title: `${ep.series?.title || 'Series'} · S${ep.season_number ?? 1}E${ep.episode_number} — ${ep.title}`,
+          image: ep.thumbnail_url || ep.series?.poster_url,
+          videoUrl: ep.video_url,
+          duration: ep.duration_minutes ? `${ep.duration_minutes}m` : '',
+          progress,
+        }
+      }
+      return null
     })
     .filter(Boolean)
   const continueMovies = historyItems
+
+  const resumeHistoryItem = (item) => {
+    setSelected(null)
+    setVideoError('')
+    if (item.dbId && item.videoUrl) {
+      trackPlaybackEvent(item.kind === 'episode' ? null : item.dbId, item.kind === 'episode' ? item.dbId : null, user?.id)
+    }
+    setPlayer(item)
+  }
 
   const savePlayback = async (item, progressSeconds = 0, completed = false) => {
     if (!user || !item?.dbId) return
@@ -748,7 +795,7 @@ function App() {
           <Row title="🔥 Trending in Rwanda" items={libraryMovies.slice(0, 6)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
           <Row title="⭐ Popular Rwandan Stories" items={libraryMovies.slice(6, 12)} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} list={list} onSeeAll={() => goTo('browse')} />
 
-          {continueMovies.length > 0 && <section className="section" id="continue"><div className="section-header"><h2>▶ Continue Watching</h2><button className="see-all" onClick={() => user ? toast('Your watch history is synced with your RwandaFlix account') : toast('Sign in to sync your watch history')}>Manage <ChevronRight size={15} /></button></div><div className="wide-row">{continueMovies.map((m) => <div className="wide-card" key={m.id} onClick={() => openPlayer(m)}><img src={m.image} alt=""/><div className="watch-progress"><i style={{ width: `${m.progress || 0}%` }} /></div><div className="wide-content"><strong>{m.title}</strong><span><Clock3 size={12}/> Continue watching · {m.duration}</span></div><button className="mini-play" onClick={e => { e.stopPropagation(); openPlayer(m) }} aria-label={`Play ${m.title}`}><Play size={14} fill="currentColor" /></button></div>)}</div></section>}
+          {continueMovies.length > 0 && <section className="section" id="continue"><div className="section-header"><h2>▶ Continue Watching</h2><button className="see-all" onClick={() => user ? toast('Your watch history is synced with your RwandaFlix account') : toast('Sign in to sync your watch history')}>Manage <ChevronRight size={15} /></button></div><div className="wide-row">{continueMovies.map((m) => <div className="wide-card" key={m.id} onClick={() => resumeHistoryItem(m)}><img src={m.image} alt=""/><div className="watch-progress"><i style={{ width: `${m.progress || 0}%` }} /></div><div className="wide-content"><strong>{m.title}</strong><span><Clock3 size={12}/> Continue watching · {m.duration}</span></div><button className="mini-play" onClick={e => { e.stopPropagation(); resumeHistoryItem(m) }} aria-label={`Play ${m.title}`}><Play size={14} fill="currentColor" /></button></div>)}</div></section>}
 
           <section className="creator-panel"><div><div className="eyebrow">Built for Rwandan creators</div><h2>One platform for Rwanda's cinema industry.</h2><p>RwandaFlix gives filmmakers, producers and studios a dedicated digital home to showcase their work, understand their audience and reach viewers in Rwanda and around the world.</p><Button className="primary" onClick={() => openAccount('creator')}>Open Creator Studio <ChevronRight size={17}/></Button></div><div className="creator-stats"><div><strong>🇷🇼</strong><span>Local Stories</span></div><div><strong>HD</strong><span>Streaming</span></div><div><strong>🌍</strong><span>Global Audience</span></div></div></section>
 
@@ -841,7 +888,24 @@ function App() {
 
       {player && <div className="modal" role="dialog" aria-modal="true" aria-label={`${player.title} player`} onClick={e => e.target === e.currentTarget && handleClosePlayer()}><div className="video-box"><button className="close" onClick={handleClosePlayer} aria-label="Close player"><X/></button><div className="video-screen">{player.videoUrl ? <VideoPlayer key={player.id} src={player.videoUrl} poster={player.image} onLoadedMetadata={handleLoadedMetadata} onTimeUpdate={handleTimeUpdate} onPauseSave={() => savePlayback(player, playerProgressRef.current, false)} onEnded={handleVideoEnded} onError={(e) => { const err = e.currentTarget.error; const messages = { 1: 'Playback was aborted.', 2: 'Network error — the video could not be fetched. Check the URL is correct and publicly reachable.', 3: "The video file couldn't be decoded — check the format is a browser-supported codec (H.264 MP4 is safest).", 4: 'This video format or URL is not supported by your browser.' }; setVideoError(messages[err?.code] || 'This video could not be played. Check the video_url is a direct, public link to a video file.') }} /> : <><div className="player-brand">RWANDA<span>FLIX</span></div><div className="player-center"><button className="big-play" onClick={() => toast('Demo player ready — add a published video URL to stream this title')} aria-label={`Play ${player.title}`}><Play size={34} fill="currentColor"/></button><h3>{player.title}</h3><p>Streaming is ready for published Supabase video URLs.</p></div></>}</div>{videoError && <div style={{ padding: '14px 18px', background: '#2a1414', color: '#f5a3a3', fontSize: 13, borderTop: '1px solid #4a1f1f' }}>{videoError}</div>}{!player.videoUrl && <div className="video-controls"><span>▶</span><div className="progress"><i /></div><span>🔊</span><span>CC</span><span>⚙</span><span>⛶</span></div>}</div></div>}
 
-      {login && <div className="modal" role="dialog" aria-modal="true" aria-label={authMode === 'signin' ? 'Sign in' : 'Create account'} onClick={e => e.target === e.currentTarget && setLogin(false)}><form className="auth-box" onSubmit={handleAuth}><button type="button" className="close" onClick={() => setLogin(false)} aria-label="Close authentication"><X/></button><div className="auth-logo">RWANDA<span>FLIX</span></div><h2>{authMode === 'signin' ? 'Welcome back' : 'Join RwandaFlix'}</h2><p>{authMode === 'signin' ? 'Sign in to continue watching RwandaFlix.' : 'Create your RwandaFlix account and sync your library.'}</p><input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required/><input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Password" type="password" autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required/><Button className="primary full" type="submit" disabled={authBusy}>{authBusy ? 'Connecting…' : authMode === 'signin' ? 'Sign In' : 'Create Account'}</Button><div className="or"><span>or</span></div><Button type="button" className="secondary full" onClick={() => setAuthMode(mode => mode === 'signin' ? 'signup' : 'signin')}>{authMode === 'signin' ? 'Create an account' : 'Back to sign in'}</Button><small>Secure authentication is handled by Supabase. Your session stays on this device until you sign out.</small></form></div>}
+      {login && <div className="modal" role="dialog" aria-modal="true" aria-label={authMode === 'signin' ? 'Sign in' : 'Create account'} onClick={e => e.target === e.currentTarget && setLogin(false)}><form className="auth-box" onSubmit={handleAuth}><button type="button" className="close" onClick={() => setLogin(false)} aria-label="Close authentication"><X/></button><div className="auth-logo">RWANDA<span>FLIX</span></div><h2>{authMode === 'signin' ? 'Welcome back' : 'Join RwandaFlix'}</h2><p>{authMode === 'signin' ? 'Sign in to continue watching RwandaFlix.' : 'Create your RwandaFlix account and sync your library.'}</p><input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required/><input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="Password" type="password" autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required/>{authMode === 'signin' && !showResetRequest && <button type="button" onClick={() => { setShowResetRequest(true); setResetMessage('') }} style={{ background: 'none', border: 0, color: '#aaa', fontSize: 13, textAlign: 'left', cursor: 'pointer', margin: '-6px 0 0' }}>Forgot password?</button>}{showResetRequest && <div style={{ background: '#161616', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>{resetMessage && <p style={{ fontSize: 13, color: resetMessage.includes('sent') ? '#4ade80' : '#f5a3a3', margin: 0 }}>{resetMessage}</p>}<Button type="button" className="secondary" disabled={resetBusy} onClick={async () => { if (!authEmail.trim()) { setResetMessage('Enter your email above first'); return }; setResetBusy(true); setResetMessage(''); try { await resetPasswordForEmail(authEmail.trim()); setResetMessage('Reset link sent — check your email.') } catch (err) { setResetMessage(err.message) } setResetBusy(false) }}>{resetBusy ? 'Sending…' : 'Send reset link'}</Button></div>}<Button className="primary full" type="submit" disabled={authBusy}>{authBusy ? 'Connecting…' : authMode === 'signin' ? 'Sign In' : 'Create Account'}</Button><div className="or"><span>or</span></div><Button type="button" className="secondary full" onClick={() => setAuthMode(mode => mode === 'signin' ? 'signup' : 'signin')}>{authMode === 'signin' ? 'Create an account' : 'Back to sign in'}</Button><small>Secure authentication is handled by Supabase. Your session stays on this device until you sign out.</small></form></div>}
+
+      {showNewPasswordForm && <div className="modal" role="dialog" aria-modal="true" aria-label="Set new password"><form className="auth-box" onSubmit={async (e) => {
+        e.preventDefault()
+        setNewPasswordMessage('')
+        const f = new FormData(e.currentTarget)
+        const next = f.get('new_password')
+        const confirm = f.get('confirm_password')
+        if (next.length < 6) { setNewPasswordMessage('Password must be at least 6 characters'); return }
+        if (next !== confirm) { setNewPasswordMessage('Passwords do not match'); return }
+        setNewPasswordBusy(true)
+        try {
+          await updatePassword(next)
+          setShowNewPasswordForm(false)
+          toast('Password updated — you can sign in with it now.')
+        } catch (err) { setNewPasswordMessage(err.message) }
+        setNewPasswordBusy(false)
+      }}><div className="auth-logo">RWANDA<span>FLIX</span></div><h2>Set a new password</h2><p>Choose a new password for your account.</p>{newPasswordMessage && <p className="form-error">{newPasswordMessage}</p>}<input name="new_password" type="password" placeholder="New password" minLength={6} required autoComplete="new-password"/><input name="confirm_password" type="password" placeholder="Confirm new password" minLength={6} required autoComplete="new-password"/><Button className="primary full" type="submit" disabled={newPasswordBusy}>{newPasswordBusy ? 'Updating…' : 'Update password'}</Button></form></div>}
 
       {accountOpen && user && <AccountCenter user={user} onClose={() => setAccountOpen(false)} initialTab={accountTab} />}
 
