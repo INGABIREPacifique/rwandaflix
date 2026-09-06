@@ -286,6 +286,20 @@ function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q && q !== query) setQuery(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const updateQuery = (value) => {
+    setQuery(value)
+    setSearchParams(params => {
+      if (value) params.set('q', value); else params.delete('q')
+      return params
+    }, { replace: true })
+  }
   const pathToPage = { '/': 'home', '/browse': 'browse', '/my-list': 'my-list' }
   const seriesDetailMatch = location.pathname.match(/^\/series\/([^/]+)$/)
   const activeSeriesId = seriesDetailMatch ? decodeURIComponent(seriesDetailMatch[1]) : null
@@ -741,7 +755,7 @@ function App() {
         </div>
 
         <div className="nav-right">
-          <label className="search-box"><Search size={16}/><input value={query} onChange={e => { setQuery(e.target.value); if (e.target.value && activePage !== 'browse') navigate('/browse') }} placeholder="Search RwandaFlix" aria-label="Search RwandaFlix" /></label>
+          <label className="search-box"><Search size={16}/><input value={query} onChange={e => { updateQuery(e.target.value); if (e.target.value && activePage !== 'browse') navigate('/browse') }} placeholder="Search RwandaFlix" aria-label="Search RwandaFlix" /></label>
           <div className="notification-wrap">
             <button className="icon-btn" onClick={() => openAccount('notifications')} aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}><Bell size={18}/>{unreadCount > 0 && <i>{unreadCount > 9 ? '9+' : unreadCount}</i>}</button>
           </div>
@@ -811,8 +825,8 @@ function App() {
       {activePage === 'browse' && (
         <main className="browse-page">
           <div className="page-heading"><div><div className="eyebrow">RwandaFlix Library</div><h1>Movies</h1><p>Explore stories made in Rwanda and stories made for Rwandans everywhere.</p></div><div className="library-count">{filteredMovies.length}<span> titles</span></div></div>
-          <div className="filter-bar"><div className="genre-pills">{genres.map(genre => <button key={genre} className={activeGenre === genre ? 'selected' : ''} onClick={() => setActiveGenre(genre)}>{genre}</button>)}</div><label className="browse-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search titles, genres..." aria-label="Search titles and genres" /></label></div>
-          {backendLoading && !catalog.length ? <div className="loading-state">Loading catalog…</div> : filteredMovies.length ? <div className="browse-grid">{filteredMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList={list.has(movie.id)} />)}</div> : <div className="empty-state"><Search size={40}/><h2>No titles found</h2><p>Try another search or genre.</p><Button className="secondary" onClick={() => { setQuery(''); setActiveGenre('All') }}>Clear filters</Button></div>}
+          <div className="filter-bar"><div className="genre-pills">{genres.map(genre => <button key={genre} className={activeGenre === genre ? 'selected' : ''} onClick={() => setActiveGenre(genre)}>{genre}</button>)}</div><label className="browse-search"><Search size={16}/><input value={query} onChange={e => updateQuery(e.target.value)} placeholder="Search titles, genres..." aria-label="Search titles and genres" /></label></div>
+          {backendLoading && !catalog.length ? <div className="loading-state">Loading catalog…</div> : filteredMovies.length ? <div className="browse-grid">{filteredMovies.map(movie => <MovieCard key={movie.id} movie={movie} onInfo={openDetail} onPlay={openPlayer} onToggleList={toggleList} inList={list.has(movie.id)} />)}</div> : <div className="empty-state"><Search size={40}/><h2>No titles found</h2><p>Try another search or genre.</p><Button className="secondary" onClick={() => { updateQuery(''); setActiveGenre('All') }}>Clear filters</Button></div>}
         </main>
       )}
 
