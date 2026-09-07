@@ -13,7 +13,7 @@ export function Root() {
     <AppErrorBoundary>
       <RwandaFlixProvider>
         <RwandaFlixBackendBridge />
-        <BrowserRouter>
+        <BrowserRouter basename="/rwandaflix">
           <App />
         </BrowserRouter>
       </RwandaFlixProvider>
