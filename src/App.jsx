@@ -8,6 +8,7 @@ import { movies, categories } from './data/movies'
 import { useRwandaFlix } from './lib/useRwandaFlix'
 import AccountCenter from './components/AccountCenter.jsx'
 import AdminReview from './components/AdminReview.jsx'
+import ProfileSwitcher from './components/ProfileSwitcher.jsx'
 import {
   isDownloadSupported,
   listDownloads,
@@ -344,6 +345,17 @@ function App() {
   const [ratingsSummary, setRatingsSummary] = useState({})
   const [myRating, setMyRating] = useState(null)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [showProfileSwitcher, setShowProfileSwitcher] = useState(false)
+  const [activeViewingProfile, setActiveViewingProfile] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rf_active_profile') || 'null') } catch { return null }
+  })
+
+  const selectViewingProfile = (profile) => {
+    setActiveViewingProfile(profile)
+    if (profile) localStorage.setItem('rf_active_profile', JSON.stringify(profile))
+    else localStorage.removeItem('rf_active_profile')
+    setShowProfileSwitcher(false)
+  }
   const [unreadCount, setUnreadCount] = useState(0)
 
   const refreshUnreadCount = useCallback(() => {
@@ -767,6 +779,7 @@ function App() {
               {user ? <button onClick={handleSignOut}><User size={16}/> Sign Out</button> : <><button onClick={() => { setAuthMode('signin'); setLogin(true); setProfileOpen(false) }}><User size={16}/> Sign In</button><button onClick={() => { setAuthMode('signup'); setLogin(true); setProfileOpen(false) }}><Plus size={16}/> Create Account</button></>}
               <button onClick={() => openAccount('creator')}><BarChart3 size={16}/> Creator Studio</button>
               <button onClick={() => openAccount('profile')}><Settings size={16}/> Settings</button>
+              {user && <button onClick={() => { setProfileOpen(false); setShowProfileSwitcher(true) }}><User size={16}/> {activeViewingProfile ? `Switch Profile (${activeViewingProfile.name})` : 'Who\'s Watching?'}</button>}
               {user && <button onClick={() => { setProfileOpen(false); navigate('/admin') }}><Film size={16}/> Admin Review</button>}
             </div>}
           </div>
@@ -922,6 +935,7 @@ function App() {
       }}><div className="auth-logo">RWANDA<span>FLIX</span></div><h2>Set a new password</h2><p>Choose a new password for your account.</p>{newPasswordMessage && <p className="form-error">{newPasswordMessage}</p>}<input name="new_password" type="password" placeholder="New password" minLength={6} required autoComplete="new-password"/><input name="confirm_password" type="password" placeholder="Confirm new password" minLength={6} required autoComplete="new-password"/><Button className="primary full" type="submit" disabled={newPasswordBusy}>{newPasswordBusy ? 'Updating…' : 'Update password'}</Button></form></div>}
 
       {accountOpen && user && <AccountCenter user={user} onClose={() => setAccountOpen(false)} initialTab={accountTab} />}
+      {showProfileSwitcher && user && <ProfileSwitcher user={user} activeProfile={activeViewingProfile} onSelect={selectViewingProfile} onClose={() => setShowProfileSwitcher(false)} />}
 
       {notice && <div className="toast"><Check size={16}/>{notice}</div>}
     </div>

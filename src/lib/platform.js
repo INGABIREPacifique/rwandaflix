@@ -112,3 +112,6 @@ export async function deleteMovie(movieId){const {error}=await requireClient().f
 export async function getAllProfilesForAdmin(){const {data,error}=await requireClient().from('profiles').select('id,full_name,role,created_at').order('created_at',{ascending:false});if(error)throw error;return data??[]}
 export async function updateUserRole(userId,role){const {error}=await requireClient().from('profiles').update({role}).eq('id',userId);if(error)throw error}
 export async function deleteOwnAccount(){const {data,error}=await requireClient().functions.invoke('delete-account');if(error)throw error;return data}
+export async function getViewingProfiles(userId){const {data,error}=await requireClient().from('viewing_profiles').select('*').eq('user_id',userId).order('created_at');if(error)throw error;return data??[]}
+export async function createViewingProfile(userId,name,isKids=false){const {data,error}=await requireClient().from('viewing_profiles').insert({user_id:userId,name,is_kids:isKids}).select().single();if(error)throw error;return data}
+export async function deleteViewingProfile(id){const {error}=await requireClient().from('viewing_profiles').delete().eq('id',id);if(error)throw error}
