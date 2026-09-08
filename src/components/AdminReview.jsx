@@ -129,7 +129,7 @@ export default function AdminReview({ user }) {
                 {pending.map((s) => (
                   <div className="wide-card" key={s.id} style={{ cursor: 'default' }}>
                     <div className="wide-content"><strong>{s.title}</strong><span>By {s.creator_profiles?.display_name || 'Unknown creator'} · {s.genre || 'No genre'}</span></div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="admin-actions">
                       {s.video_url && <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn secondary" style={{ padding: '8px 12px', fontSize: 13 }}>Preview</a>}
                       <button className="btn primary" style={{ padding: '8px 12px', fontSize: 13 }} disabled={actionBusyId === s.id} onClick={() => handleApprove(s)}><Check size={14} /> Approve</button>
                       <button className="btn secondary" style={{ padding: '8px 12px', fontSize: 13 }} disabled={actionBusyId === s.id} onClick={() => handleReject(s)}><X size={14} /> Reject</button>
@@ -161,7 +161,7 @@ export default function AdminReview({ user }) {
             {movies.map((m) => (
               <div className="wide-card" key={m.id} style={{ cursor: 'default' }}>
                 <div className="wide-content"><strong>{m.title}</strong><span>{m.genre || 'No genre'} · {m.is_published ? 'Published' : 'Unpublished'}{m.creator_id ? ' · Creator submission' : ''}</span></div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="admin-actions">
                   <button className="btn secondary" style={{ padding: '8px 12px', fontSize: 13 }} disabled={actionBusyId === m.id} onClick={() => handleTogglePublish(m)}>{m.is_published ? <EyeOff size={14} /> : <Eye size={14} />} {m.is_published ? 'Unpublish' : 'Publish'}</button>
                   <button className="btn secondary" style={{ padding: '8px 12px', fontSize: 13, color: '#f5a3a3' }} disabled={actionBusyId === m.id} onClick={() => handleDeleteMovie(m)}><Trash2 size={14} /> Delete</button>
                 </div>
