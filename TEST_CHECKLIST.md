@@ -127,10 +127,10 @@ A "mostly works" is a fail here — check honestly.
 - [ ] Profile switcher avatars fit without overflowing
 - [ ] Video player controls are usable and don't overlap
 
-## 20. Production deployment (GitHub Pages)
-- [ ] Actions tab shows the "Deploy to GitHub Pages" workflow succeeding (green, not red)
-- [ ] https://ingabirepacifique.github.io/rwandaflix/ loads the real app, not a 404
-- [ ] Deep links and refreshes work on the deployed site (this is what the 404.html trick is for)
+## 20. Production deployment (Vercel)
+- [ ] https://rwandaflix-dun.vercel.app/ loads the real app, not a 404 or blank page
+- [ ] Deep links and refreshes work on the deployed site (vercel.json handles SPA routing)
+- [ ] Environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are correctly set in Vercel project settings — sign-in on the live site actually reaches your real Supabase project
 
 ## 21. Regression check
 - [ ] Nothing from any earlier section visibly broke as a side effect of later changes
